@@ -11,6 +11,8 @@ import FAQ from './components/FAQ'
 import Cart from './components/Cart'
 import Checkout from './components/Checkout'
 import ProductDetails from './components/ProductDetail'
+import ReturnRefund from './components/ReturnRefund'
+import Offers from './components/Offers'
 
 function App() {
   return (
@@ -26,6 +28,8 @@ function App() {
         <Route path='/cart' element={<Cart />} />
         <Route path='/checkout' element={<Checkout />} />
         <Route path='/productDetails' element={<ProductDetails />} />
+        <Route path='/returnRefund' element={<ReturnRefund />} />
+        <Route path='/offers' element={<Offers />} />
       </Routes>
     </Router>
   )
