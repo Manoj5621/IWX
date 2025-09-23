@@ -930,6 +930,7 @@ section {
 }
 
 .newsletter-note {
+  padding-top: 30px;
   font-size: 12px;
   opacity: 0.6;
 }
