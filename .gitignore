@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 
+__pycache__
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -25,5 +27,3 @@ dist-ssr
 
 .env
 
-virtual_try_on_Architecture.jpg
-virtual_try_on_Architecture_light.jpg
