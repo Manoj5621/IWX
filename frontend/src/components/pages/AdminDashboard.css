@@ -242,8 +242,9 @@ body {
 .nav-item {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-md) var(--spacing-lg);
+  gap: 0;
+  margin-left: 0;
+  padding: 0;
   background: none;
   border: none;
   text-align: left;

@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 
+.env
+
+virtual_try_on_Architecture.jpg
+virtual_try_on_Architecture_light.jpg

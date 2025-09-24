@@ -422,6 +422,7 @@
   display: flex;
   border-bottom: 1px solid #eee;
   margin-bottom: 30px;
+  color: #000;
 }
 
 .tab-headers button {
@@ -431,6 +432,7 @@
   cursor: pointer;
   font-size: 16px;
   position: relative;
+  color: #000;
 }
 
 .tab-headers button.active {

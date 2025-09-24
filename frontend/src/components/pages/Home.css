@@ -49,7 +49,7 @@ body {
 }
 
 .menu-button {
-  display: flex;
+  display: none;
   flex-direction: column;
   justify-content: space-between;
   width: 22px;
@@ -1074,6 +1074,7 @@ section {
 
 /* Responsive Design */
 @media (max-width: 1200px) {
+
   .products-grid {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -1114,6 +1115,13 @@ section {
 }
 
 @media (max-width: 768px) {
+  .menu-button{
+    display: flex !important;
+  }
+  .main-nav {
+    display: none;
+  }
+
   .header {
     padding: 1px 20px;
   }
@@ -1172,6 +1180,9 @@ section {
 }
 
 @media (max-width: 576px) {
+  .main-nav {
+    display: none;
+  }
   .slide-content h2 {
     font-size: 28px;
   }

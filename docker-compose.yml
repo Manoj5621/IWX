@@ -1,0 +1,11 @@
+services:
+  virtual-try-on-api:
+    build:
+      context: ./Virtual-TryOn-Backend
+      dockerfile: Dockerfile
+    container_name: Virtual-TryOn-Backend
+    ports:
+      - "8011:8011"
+    env_file:
+      - ./Virtual-TryOn-Backend/.env
+    restart: unless-stopped
