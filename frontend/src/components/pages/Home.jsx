@@ -1,53 +1,12 @@
 // Home.jsx
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import Navbar from '../Navbar';
 import './Home.css';
 
 const Home = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState(null);
-  const navigate = useNavigate();
-  const searchRef = useRef(null);
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-    };
-
-    const handleClickOutside = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
-        setIsSearchOpen(false);
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    document.addEventListener('mousedown', handleClickOutside);
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  // Toggle search box
-  const toggleSearch = () => {
-    setIsSearchOpen(!isSearchOpen);
-    if (!isSearchOpen) {
-      setTimeout(() => {
-        document.querySelector('.search-input')?.focus();
-      }, 100);
-    }
-  };
-
-  // Toggle category dropdown
-  const toggleCategory = (category) => {
-    setActiveCategory(activeCategory === category ? null : category);
-  };
 
   const slides = [
     {
@@ -204,116 +163,7 @@ const Home = () => {
 
   return (
     <div className="home-container">
-      {/* Header */}
-      <header className={`header ${isScrolled ? 'scrolled' : ''}`}>
-        <div className="header-left">
-          <button 
-            className="menu-button"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            <span></span>
-            <span></span>
-          </button>
-          <nav className={`main-nav ${isMenuOpen ? 'open' : ''}`}>
-            {categories.map((category) => (
-              <div 
-                key={category.name} 
-                className="nav-item"
-                onMouseEnter={() => setActiveCategory(category.name)}
-                onMouseLeave={() => setActiveCategory(null)}
-              >
-                <a href="#/" className="nav-link">{category.name}</a>
-                <AnimatePresence>
-                  {activeCategory === category.name && (
-                    <motion.div 
-                      className="dropdown-menu"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 10 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      {category.subcategories.map((subcat) => (
-                        <a key={subcat} href="#/">{subcat}</a>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            ))}
-          </nav>
-        </div>
-        
-        <div className="logo">
-          <h1>IWX</h1>
-          <p className="slogan">Designing Tomorrow, Today</p>
-        </div>
-        
-        <div className="header-right">
-          <div className="search-container" ref={searchRef}>
-            <button className="search-btn" onClick={toggleSearch}>
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path d="M12.5 11H11.71L11.43 10.73C12.41 9.59 13 8.11 13 6.5C13 2.91 10.09 0 6.5 0C2.91 0 0 2.91 0 6.5C0 10.09 2.91 13 6.5 13C8.11 13 9.59 12.41 10.73 11.43L11 11.71V12.5L16 17.49L17.49 16L12.5 11ZM6.5 11C4.01 11 2 8.99 2 6.5C2 4.01 4.01 2 6.5 2C8.99 2 11 4.01 11 6.5C11 8.99 8.99 11 6.5 11Z" fill="black"/>
-              </svg>
-            </button>
-            <AnimatePresence>
-              {isSearchOpen && (
-                <motion.div 
-                  className="search-box"
-                  initial={{ width: 0, opacity: 0 }}
-                  animate={{ width: 250, opacity: 1 }}
-                  exit={{ width: 0, opacity: 0 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <input 
-                    type="text" 
-                    className="search-input"
-                    placeholder="Search products..." 
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-          <button className="user-btn" onClick={() => navigate('/profile')}>
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M9 0C4.03 0 0 4.03 0 9C0 13.97 4.03 18 9 18C13.97 18 18 13.97 18 9C18 4.03 13.97 0 9 0ZM9 4C10.66 4 12 5.34 12 7C12 8.66 10.66 10 9 10C7.34 10 6 8.66 6 7C6 5.34 7.34 4 9 4ZM9 16C6.67 16 4.61 14.94 3.33 13.33C3.94 12.01 5.59 11 7.5 11H10.5C12.41 11 14.06 12.01 14.67 13.33C13.39 14.94 11.33 16 9 16Z" fill="black"/>
-            </svg>
-          </button>
-          <button className="cart-btn" onClick={() => navigate('/cart')}>
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M0 0H3.27L5.09 10.91H15.09L17 4H4.45L4.18 2H17V4H19L17.64 11.19C17.44 12.09 16.64 12.73 15.73 12.73H5.45C4.54 12.73 3.74 12.09 3.54 11.19L1.36 1.09L0 0ZM5.45 14C4.45 14 3.64 14.81 3.64 15.81C3.64 16.81 4.45 17.62 5.45 17.62C6.45 17.62 7.26 16.81 7.26 15.81C7.26 14.81 6.45 14 5.45 14ZM14.45 14C13.45 14 12.64 14.81 12.64 15.81C12.64 16.81 13.45 17.62 14.45 17.62C15.45 17.62 16.26 16.81 16.26 15.81C16.26 14.81 15.45 14 14.45 14Z" fill="black"/>
-            </svg>
-            <span className="cart-count">3</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Mobile Menu */}
-      <motion.div 
-        className={`mobile-menu ${isMenuOpen ? 'open' : ''}`}
-        initial={{ opacity: 0, x: -100 }}
-        animate={{ opacity: isMenuOpen ? 1 : 0, x: isMenuOpen ? 0 : -100 }}
-        transition={{ duration: 0.3 }}
-      >
-        <nav>
-          {categories.map((category) => (
-            <div key={category.name} className="mobile-nav-item">
-              <a href="#/" onClick={() => toggleCategory(category.name)}>
-                {category.name}
-                <span className="dropdown-arrow">{activeCategory === category.name ? '▲' : '▼'}</span>
-              </a>
-              {activeCategory === category.name && (
-                <div className="mobile-dropdown">
-                  {category.subcategories.map((subcat) => (
-                    <a key={subcat} href="#/">{subcat}</a>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </nav>
-      </motion.div>
+      <Navbar />
 
       {/* Hero Slider */}
       <section className="hero-slider">

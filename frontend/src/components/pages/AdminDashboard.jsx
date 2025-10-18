@@ -1,11 +1,15 @@
 // AdminDashboard.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './AdminDashboard.css';
 
 const AdminDashboard = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const sidebarRef = useRef(null);
   const [stats, setStats] = useState({
     totalSales: 125430,
     totalOrders: 2847,
@@ -119,6 +123,34 @@ const [systemStatus, setSystemStatus] = useState([
 
     return () => clearInterval(interval);
   }, []);
+
+  // Drag functionality
+  const handleMouseDown = (e) => {
+    if (!sidebarOpen) return;
+    setIsDragging(true);
+    const startX = e.clientX - dragOffset;
+    const handleMouseMove = (e) => {
+      if (!isDragging) return;
+      const newOffset = e.clientX - startX;
+      // Limit drag range to -50px to +50px
+      const clampedOffset = Math.max(-50, Math.min(50, newOffset));
+      setDragOffset(clampedOffset);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      // Reset to center after drag ends
+      setDragOffset(0);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  };
 
   // Sample data for charts
   const salesData = [
@@ -276,7 +308,12 @@ const [systemStatus, setSystemStatus] = useState([
         </div>
         <div className="header-right">
           <div className="admin-search">
-            <input type="text" placeholder="Search..." />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
             <button>🔍</button>
           </div>
           <div className="admin-notifications">
@@ -291,80 +328,276 @@ const [systemStatus, setSystemStatus] = useState([
       </header>
 
       {/* Sidebar */}
-      <aside className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}>
-        <nav className="sidebar-nav">
-          <button 
+      <aside
+        ref={sidebarRef}
+        className={`admin-sidebar ${sidebarOpen ? 'open' : ''}`}
+        style={{
+          transform: sidebarOpen ? `translateX(${dragOffset}px)` : 'translateX(-100%)',
+          transition: isDragging ? 'none' : 'transform var(--transition-normal)',
+          cursor: sidebarOpen ? (isDragging ? 'grabbing' : 'grab') : 'default'
+        }}
+        onMouseDown={handleMouseDown}
+      >
+        {/* Desktop Navigation - Visible on large screens */}
+        <nav className="desktop-nav">
+          <button
             className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`}
             onClick={() => setActiveSection('dashboard')}
           >
             📊 Dashboard
           </button>
-          <button 
+          <button
             className={`nav-item ${activeSection === 'products' ? 'active' : ''}`}
             onClick={() => setActiveSection('products')}
           >
             🛍️ Products
           </button>
-          <button 
+          <button
             className={`nav-item ${activeSection === 'orders' ? 'active' : ''}`}
             onClick={() => setActiveSection('orders')}
           >
             📦 Orders
           </button>
-          <button 
+          <button
             className={`nav-item ${activeSection === 'customers' ? 'active' : ''}`}
             onClick={() => setActiveSection('customers')}
           >
             👥 Customers
           </button>
-          <button 
+          <button
             className={`nav-item ${activeSection === 'analytics' ? 'active' : ''}`}
             onClick={() => setActiveSection('analytics')}
           >
             📈 Analytics
           </button>
-          <button 
+          <button
             className={`nav-item ${activeSection === 'marketing' ? 'active' : ''}`}
             onClick={() => setActiveSection('marketing')}
           >
             🎯 Marketing
           </button>
-          <button 
+          <button
             className={`nav-item ${activeSection === 'inventory' ? 'active' : ''}`}
             onClick={() => setActiveSection('inventory')}
           >
             📋 Inventory
           </button>
-          {/* Add these to the existing sidebar navigation */}
-            <button 
-                className={`nav-item ${activeSection === 'users' ? 'active' : ''}`}
-                onClick={() => setActiveSection('users')}
-                >
-                👥 User Management
-            </button>
-            <button 
-                className={`nav-item ${activeSection === 'finance' ? 'active' : ''}`}
-                onClick={() => setActiveSection('finance')}
-                >
-                💰 Finance
-            </button>
-            <button 
-                className={`nav-item ${activeSection === 'reports' ? 'active' : ''}`}
-                onClick={() => setActiveSection('reports')}
-                >
-                📋 Reports
-            </button>
-            <button 
-                className={`nav-item ${activeSection === 'help' ? 'active' : ''}`}
-                onClick={() => setActiveSection('help')}
-                >
-                ❓ Help & Support
-            </button>
-            <button 
-                className={`nav-item ${activeSection === 'settings' ? 'active' : ''}`}
-                onClick={() => setActiveSection('settings')}
-            >
-                ⚙️ Settings
+          <button
+            className={`nav-item ${activeSection === 'users' ? 'active' : ''}`}
+            onClick={() => setActiveSection('users')}
+          >
+            👥 User Management
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'finance' ? 'active' : ''}`}
+            onClick={() => setActiveSection('finance')}
+          >
+            💰 Finance
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'reports' ? 'active' : ''}`}
+            onClick={() => setActiveSection('reports')}
+          >
+            📋 Reports
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'notifications' ? 'active' : ''}`}
+            onClick={() => setActiveSection('notifications')}
+          >
+            🔔 Notifications
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'security' ? 'active' : ''}`}
+            onClick={() => setActiveSection('security')}
+          >
+            🔒 Security
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'integrations' ? 'active' : ''}`}
+            onClick={() => setActiveSection('integrations')}
+          >
+            🔗 Integrations
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'backups' ? 'active' : ''}`}
+            onClick={() => setActiveSection('backups')}
+          >
+            💾 Backups
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'logs' ? 'active' : ''}`}
+            onClick={() => setActiveSection('logs')}
+          >
+            📝 Logs
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'help' ? 'active' : ''}`}
+            onClick={() => setActiveSection('help')}
+          >
+            ❓ Help & Support
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveSection('settings')}
+          >
+            ⚙️ Settings
+          </button>
+        </nav>
+
+        {/* Mobile Navigation - Only in sidebar */}
+        <nav className="sidebar-nav">
+          <button
+            className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('dashboard');
+              setSidebarOpen(false);
+            }}
+          >
+            📊 Dashboard
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'products' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('products');
+              setSidebarOpen(false);
+            }}
+          >
+            🛍️ Products
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'orders' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('orders');
+              setSidebarOpen(false);
+            }}
+          >
+            📦 Orders
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'customers' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('customers');
+              setSidebarOpen(false);
+            }}
+          >
+            👥 Customers
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'analytics' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('analytics');
+              setSidebarOpen(false);
+            }}
+          >
+            📈 Analytics
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'marketing' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('marketing');
+              setSidebarOpen(false);
+            }}
+          >
+            🎯 Marketing
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'inventory' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('inventory');
+              setSidebarOpen(false);
+            }}
+          >
+            📋 Inventory
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'users' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('users');
+              setSidebarOpen(false);
+            }}
+          >
+            👥 User Management
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'finance' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('finance');
+              setSidebarOpen(false);
+            }}
+          >
+            💰 Finance
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'reports' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('reports');
+              setSidebarOpen(false);
+            }}
+          >
+            📋 Reports
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'notifications' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('notifications');
+              setSidebarOpen(false);
+            }}
+          >
+            🔔 Notifications
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'security' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('security');
+              setSidebarOpen(false);
+            }}
+          >
+            🔒 Security
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'integrations' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('integrations');
+              setSidebarOpen(false);
+            }}
+          >
+            🔗 Integrations
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'backups' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('backups');
+              setSidebarOpen(false);
+            }}
+          >
+            💾 Backups
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'logs' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('logs');
+              setSidebarOpen(false);
+            }}
+          >
+            📝 Logs
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'help' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('help');
+              setSidebarOpen(false);
+            }}
+          >
+            ❓ Help & Support
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'settings' ? 'active' : ''}`}
+            onClick={() => {
+              setActiveSection('settings');
+              setSidebarOpen(false);
+            }}
+          >
+            ⚙️ Settings
           </button>
         </nav>
       </aside>
@@ -1281,9 +1514,271 @@ const [systemStatus, setSystemStatus] = useState([
         </motion.section>
         )}
 
+        {/* Notifications Section */}
+        {activeSection === 'notifications' && (
+        <motion.section
+            className="notifications-section"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+        >
+            <div className="section-header">
+            <h2>Notifications Center</h2>
+            <button className="primary-btn">Mark All Read</button>
+            </div>
+
+            <div className="notifications-list">
+            <div className="notification-item unread">
+                <div className="notification-icon">🔔</div>
+                <div className="notification-content">
+                <h4>Low Stock Alert</h4>
+                <p>Premium Leather Jacket is running low on stock (12 units remaining)</p>
+                <span className="notification-time">2 minutes ago</span>
+                </div>
+                <button className="notification-action">View</button>
+            </div>
+            <div className="notification-item">
+                <div className="notification-icon">📦</div>
+                <div className="notification-content">
+                <h4>New Order Received</h4>
+                <p>Order #IWX789012 has been placed for $247.50</p>
+                <span className="notification-time">15 minutes ago</span>
+                </div>
+                <button className="notification-action">Process</button>
+            </div>
+            <div className="notification-item">
+                <div className="notification-icon">👥</div>
+                <div className="notification-content">
+                <h4>New Customer Registration</h4>
+                <p>Sarah Johnson has created a new account</p>
+                <span className="notification-time">1 hour ago</span>
+                </div>
+                <button className="notification-action">Welcome</button>
+            </div>
+            </div>
+        </motion.section>
+        )}
+
+        {/* Security Section */}
+        {activeSection === 'security' && (
+        <motion.section
+            className="security-section"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+        >
+            <div className="section-header">
+            <h2>Security Center</h2>
+            <button className="primary-btn">Run Security Scan</button>
+            </div>
+
+            <div className="security-grid">
+            <div className="security-card">
+                <h4>Login Attempts</h4>
+                <div className="security-metric">1,247</div>
+                <p>Successful logins today</p>
+                <div className="security-status safe">All Clear</div>
+            </div>
+            <div className="security-card">
+                <h4>Failed Attempts</h4>
+                <div className="security-metric">3</div>
+                <p>Blocked suspicious attempts</p>
+                <div className="security-status warning">Monitor</div>
+            </div>
+            <div className="security-card">
+                <h4>Active Sessions</h4>
+                <div className="security-metric">24</div>
+                <p>Current active sessions</p>
+                <div className="security-status safe">Normal</div>
+            </div>
+            <div className="security-card">
+                <h4>Security Score</h4>
+                <div className="security-metric">98%</div>
+                <p>Overall security rating</p>
+                <div className="security-status excellent">Excellent</div>
+            </div>
+            </div>
+
+            <div className="recent-activity">
+            <h3>Recent Security Events</h3>
+            <div className="activity-list">
+                <div className="activity-item">
+                <span className="activity-time">10:30 AM</span>
+                <span>Password changed for admin@iwx.com</span>
+                </div>
+                <div className="activity-item">
+                <span className="activity-time">9:15 AM</span>
+                <span>Two-factor authentication enabled</span>
+                </div>
+                <div className="activity-item">
+                <span className="activity-time">8:45 AM</span>
+                <span>New device login from Chrome on Windows</span>
+                </div>
+            </div>
+            </div>
+        </motion.section>
+        )}
+
+        {/* Integrations Section */}
+        {activeSection === 'integrations' && (
+        <motion.section
+            className="integrations-section"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+        >
+            <div className="section-header">
+            <h2>API Integrations</h2>
+            <button className="primary-btn">+ Add Integration</button>
+            </div>
+
+            <div className="integrations-grid">
+            <div className="integration-card active">
+                <div className="integration-icon">💳</div>
+                <h4>Stripe Payments</h4>
+                <p>Payment processing integration</p>
+                <div className="integration-status active">Connected</div>
+                <button className="secondary-btn">Configure</button>
+            </div>
+            <div className="integration-card active">
+                <div className="integration-icon">📧</div>
+                <h4>SendGrid Email</h4>
+                <p>Email delivery service</p>
+                <div className="integration-status active">Connected</div>
+                <button className="secondary-btn">Configure</button>
+            </div>
+            <div className="integration-card">
+                <div className="integration-icon">📦</div>
+                <h4>Shippo Shipping</h4>
+                <p>Shipping and tracking</p>
+                <div className="integration-status inactive">Not Connected</div>
+                <button className="primary-btn">Connect</button>
+            </div>
+            <div className="integration-card">
+                <div className="integration-icon">📊</div>
+                <h4>Google Analytics</h4>
+                <p>Website analytics</p>
+                <div className="integration-status inactive">Not Connected</div>
+                <button className="primary-btn">Connect</button>
+            </div>
+            </div>
+        </motion.section>
+        )}
+
+        {/* Backups Section */}
+        {activeSection === 'backups' && (
+        <motion.section
+            className="backups-section"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+        >
+            <div className="section-header">
+            <h2>Data Backups</h2>
+            <button className="primary-btn">Create Backup</button>
+            </div>
+
+            <div className="backup-stats">
+            <div className="backup-stat-card">
+                <div className="backup-stat-value">24</div>
+                <div className="backup-stat-label">Total Backups</div>
+            </div>
+            <div className="backup-stat-card">
+                <div className="backup-stat-value">2.4GB</div>
+                <div className="backup-stat-label">Storage Used</div>
+            </div>
+            <div className="backup-stat-card">
+                <div className="backup-stat-value">98.7%</div>
+                <div className="backup-stat-label">Success Rate</div>
+            </div>
+            <div className="backup-stat-card">
+                <div className="backup-stat-value">Daily</div>
+                <div className="backup-stat-label">Auto Backup</div>
+            </div>
+            </div>
+
+            <div className="recent-backups">
+            <h3>Recent Backups</h3>
+            <div className="backup-list">
+                <div className="backup-item">
+                <div className="backup-info">
+                    <h4>Full System Backup</h4>
+                    <p>Database + Files + Configuration</p>
+                    <span className="backup-size">1.2GB</span>
+                </div>
+                <div className="backup-status success">Completed</div>
+                <span className="backup-time">2 hours ago</span>
+                <button className="secondary-btn">Download</button>
+                </div>
+                <div className="backup-item">
+                <div className="backup-info">
+                    <h4>Database Only</h4>
+                    <p>All tables and data</p>
+                    <span className="backup-size">856MB</span>
+                </div>
+                <div className="backup-status success">Completed</div>
+                <span className="backup-time">1 day ago</span>
+                <button className="secondary-btn">Download</button>
+                </div>
+            </div>
+            </div>
+        </motion.section>
+        )}
+
+        {/* Logs Section */}
+        {activeSection === 'logs' && (
+        <motion.section
+            className="logs-section"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+        >
+            <div className="section-header">
+            <h2>System Logs</h2>
+            <div style={{display: 'flex', gap: '10px'}}>
+                <select style={{padding: '8px 12px', borderRadius: '6px', border: '1px solid #ddd'}}>
+                <option>All Logs</option>
+                <option>Errors Only</option>
+                <option>Warnings</option>
+                <option>Info</option>
+                </select>
+                <button className="primary-btn">Export Logs</button>
+            </div>
+            </div>
+
+            <div className="logs-container">
+            <div className="log-entry error">
+                <span className="log-time">14:32:15</span>
+                <span className="log-level error">ERROR</span>
+                <span className="log-message">Failed to connect to payment gateway</span>
+            </div>
+            <div className="log-entry warning">
+                <span className="log-time">14:28:42</span>
+                <span className="log-level warning">WARN</span>
+                <span className="log-message">High memory usage detected (87%)</span>
+            </div>
+            <div className="log-entry info">
+                <span className="log-time">14:25:18</span>
+                <span className="log-level info">INFO</span>
+                <span className="log-message">User admin@iwx.com logged in</span>
+            </div>
+            <div className="log-entry success">
+                <span className="log-time">14:20:33</span>
+                <span className="log-level success">SUCCESS</span>
+                <span className="log-message">Order IWX789012 processed successfully</span>
+            </div>
+            </div>
+        </motion.section>
+        )}
+
         {/* Reports Section */}
         {activeSection === 'reports' && (
-        <motion.section 
+        <motion.section
             className="reports-section"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1328,7 +1823,7 @@ const [systemStatus, setSystemStatus] = useState([
 
         {/* Help Section */}
         {activeSection === 'help' && (
-        <motion.section 
+        <motion.section
             className="help-section"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
