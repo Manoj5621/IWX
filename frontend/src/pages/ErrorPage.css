@@ -1,134 +1,433 @@
+/* ErrorPage.css */
 .error-page {
-  display: flex;
-  justify-content: center;
-  align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  font-family: 'Arial', sans-serif;
-  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f8f8;
+  padding: 20px;
 }
 
 .error-container {
-  background: white;
-  border-radius: 12px;
-  padding: 3rem 2rem;
   text-align: center;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  background: white;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
   max-width: 500px;
-  width: 90%;
+  width: 100%;
 }
 
-.error-icon {
-  font-size: 4rem;
-  margin-bottom: 1rem;
+.error-animation {
+  width: 150px;
+  height: 150px;
+  margin: 0 auto 20px;
+  position: relative;
 }
 
 .error-code {
-  font-size: 6rem;
-  font-weight: bold;
-  color: #667eea;
-  margin: 0;
-  line-height: 1;
+  font-size: 48px;
+  font-weight: 300;
+  margin-bottom: 10px;
+  color: #000;
+  letter-spacing: 2px;
 }
 
 .error-title {
-  font-size: 2rem;
-  margin: 1rem 0;
+  font-size: 24px;
+  font-weight: 400;
+  margin-bottom: 15px;
   color: #333;
 }
 
 .error-message {
-  font-size: 1.1rem;
   color: #666;
-  margin-bottom: 2rem;
+  margin-bottom: 25px;
   line-height: 1.6;
 }
 
 .error-details {
-  margin-bottom: 2rem;
+  margin-bottom: 25px;
   text-align: left;
 }
 
 .error-details summary {
   cursor: pointer;
-  font-weight: bold;
-  color: #667eea;
-  margin-bottom: 0.5rem;
+  margin-bottom: 10px;
+  font-weight: 500;
 }
 
 .error-details pre {
-  background: #f8f9fa;
-  padding: 1rem;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  color: #495057;
+  background: #f5f5f5;
+  padding: 15px;
+  border-radius: 4px;
   overflow-x: auto;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  font-size: 12px;
 }
 
 .error-actions {
   display: flex;
-  gap: 1rem;
+  gap: 15px;
   justify-content: center;
   flex-wrap: wrap;
 }
 
-.btn-primary,
-.btn-secondary {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 500;
+.btn-primary, .btn-secondary {
+  padding: 12px 24px;
+  border: 1px solid #000;
+  background: #000;
+  color: white;
   cursor: pointer;
-  transition: all 0.2s ease;
-  text-decoration: none;
-  display: inline-block;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  min-width: 120px;
 }
 
-.btn-primary {
-  background: #667eea;
-  color: white;
+.btn-secondary {
+  background: white;
+  color: #000;
 }
 
 .btn-primary:hover {
-  background: #5a6fd8;
-  transform: translateY(-2px);
-}
-
-.btn-secondary {
-  background: #f8f9fa;
-  color: #333;
-  border: 1px solid #dee2e6;
+  background: #333;
 }
 
 .btn-secondary:hover {
-  background: #e9ecef;
-  transform: translateY(-2px);
+  background: #f8f8f8;
 }
 
+/* Compass Animation */
+.compass-animation {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.compass-outer {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto;
+}
+
+.compass-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 140px;
+  height: 140px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.compass-svg {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 2;
+}
+
+.search-dots {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.search-dots span {
+  width: 6px;
+  height: 6px;
+  background: #666;
+  border-radius: 50%;
+}
+
+/* Server Animation */
+.server-animation {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.server-rack {
+  position: relative;
+  width: 120px;
+  height: 80px;
+  margin: 0 auto;
+  background: #f0f0f0;
+  border-radius: 4px;
+  border: 2px solid #ddd;
+}
+
+.server-unit {
+  display: flex;
+  gap: 8px;
+  padding: 15px;
+  justify-content: center;
+}
+
+.server-light {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ff4444;
+  transition: all 0.3s ease;
+}
+
+.server-light.active {
+  background: #4CAF50;
+  box-shadow: 0 0 10px #4CAF50;
+}
+
+.repair-tool {
+  position: absolute;
+  bottom: -10px;
+  font-size: 20px;
+}
+
+.sparks {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.spark {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: #ffeb3b;
+  border-radius: 50%;
+}
+
+/* Network Animation */
+.network-animation {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.wifi-symbol {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  margin: 0 auto;
+}
+
+.wifi-arc {
+  position: absolute;
+  border: 3px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+}
+
+.arc-0 {
+  width: 100px;
+  height: 100px;
+  top: 0;
+  left: 0;
+}
+
+.arc-1 {
+  width: 70px;
+  height: 70px;
+  top: 15px;
+  left: 15px;
+}
+
+.arc-2 {
+  width: 40px;
+  height: 40px;
+  top: 30px;
+  left: 30px;
+}
+
+.connection-dot {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #ff4444;
+  border-radius: 50%;
+  top: 44px;
+  left: 44px;
+}
+
+.signal-bars {
+  display: flex;
+  align-items: end;
+  gap: 4px;
+  justify-content: center;
+  margin-top: 10px;
+  height: 30px;
+}
+
+.signal-bar {
+  width: 8px;
+  background: #666;
+  border-radius: 2px;
+}
+
+/* Timeout Animation */
+.timeout-animation {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.hourglass {
+  width: 60px;
+  height: 80px;
+  position: relative;
+}
+
+.hourglass-top,
+.hourglass-bottom {
+  width: 60px;
+  height: 30px;
+  background: #f0f0f0;
+  border: 2px solid #ddd;
+  position: relative;
+  overflow: hidden;
+}
+
+.hourglass-top {
+  border-bottom: none;
+  border-radius: 30px 30px 0 0;
+}
+
+.hourglass-bottom {
+  border-top: none;
+  border-radius: 0 0 30px 30px;
+}
+
+.hourglass-neck {
+  width: 20px;
+  height: 20px;
+  background: #f0f0f0;
+  border-left: 2px solid #ddd;
+  border-right: 2px solid #ddd;
+  margin: 0 auto;
+}
+
+.sand {
+  width: 100%;
+  background: #ffa726;
+  position: absolute;
+  bottom: 0;
+  border-radius: 0 0 28px 28px;
+}
+
+.hourglass-top .sand {
+  border-radius: 28px 28px 0 0;
+}
+
+.time-text {
+  margin-top: 10px;
+  font-size: 20px;
+}
+
+/* Unexpected Animation */
+.unexpected-animation {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.error-symbol {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto;
+  border: 3px solid #ff4444;
+  border-radius: 50%;
+}
+
+.error-x {
+  position: absolute;
+  background: #ff4444;
+  top: 50%;
+  left: 50%;
+}
+
+.error-x.x1 {
+  width: 50px;
+  height: 4px;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.error-x.x2 {
+  width: 50px;
+  height: 4px;
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.error-circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 60px;
+  height: 60px;
+  border: 2px solid #ff4444;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.error-particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: #ff4444;
+  border-radius: 50%;
+}
+
+.question-mark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 24px;
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
   .error-container {
-    padding: 2rem 1.5rem;
+    padding: 30px 20px;
   }
-
+  
   .error-code {
-    font-size: 4rem;
+    font-size: 36px;
   }
-
+  
   .error-title {
-    font-size: 1.5rem;
+    font-size: 20px;
   }
-
+  
   .error-actions {
     flex-direction: column;
     align-items: center;
   }
-
-  .btn-primary,
-  .btn-secondary {
+  
+  .btn-primary, .btn-secondary {
     width: 100%;
     max-width: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .error-animation {
+    width: 120px;
+    height: 120px;
+  }
+  
+  .compass-outer,
+  .server-rack,
+  .wifi-symbol {
+    transform: scale(0.8);
   }
 }
