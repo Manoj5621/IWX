@@ -55,8 +55,8 @@ class UserInDB(UserBase):
 class UserResponse(BaseModel):
     id: str
     email: EmailStr
-    first_name: str
-    last_name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     role: UserRole
     status: UserStatus
     created_at: datetime
@@ -76,6 +76,7 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    user: Optional[UserResponse] = None
 
 class TokenData(BaseModel):
     email: Optional[str] = None

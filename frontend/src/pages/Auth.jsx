@@ -2,12 +2,15 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import { authAPI } from '../api/authAPI';
+import { loginSuccess } from '../redux/slices/authSlice';
 import apiService from '../services/api';
 import './Auth.css';
 
 const Auth = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     firstName: '',
@@ -83,10 +86,19 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        await authAPI.login({
+        const response = await authAPI.login({
           email: formData.email,
           password: formData.password
         });
+        // Store user role in localStorage
+        const userRole = response.user?.role || 'user';
+        localStorage.setItem('userRole', userRole);
+
+        // Dispatch login success to Redux store
+        dispatch(loginSuccess({
+          user: response.user,
+          token: response.access_token
+        }));
         navigate('/');
       } else {
         await authAPI.register({
@@ -96,10 +108,19 @@ const Auth = () => {
           password: formData.password
         });
         // After registration, automatically log in
-        await authAPI.login({
+        const response = await authAPI.login({
           email: formData.email,
           password: formData.password
         });
+        // Store user role in localStorage
+        const userRole = response.user?.role || 'user';
+        localStorage.setItem('userRole', userRole);
+
+        // Dispatch login success to Redux store
+        dispatch(loginSuccess({
+          user: response.user,
+          token: response.access_token
+        }));
         navigate('/');
       }
     } catch (error) {

@@ -34,10 +34,18 @@ function App() {
       if (token) {
         try {
           const user = await authAPI.getCurrentUser();
-          dispatch(loginSuccess({ user, token }));
+          if (user) {
+            const userRole = user.role || 'user';
+            localStorage.setItem('userRole', userRole);
+            dispatch(loginSuccess({ user, token }));
+          } else {
+            throw new Error('Failed to get user data');
+          }
         } catch (error) {
+          console.error('Auth initialization error:', error);
           dispatch(loginFailure(error.message));
           localStorage.removeItem('token');
+          localStorage.removeItem('userRole');
         }
       } else {
         dispatch(setLoading(false));

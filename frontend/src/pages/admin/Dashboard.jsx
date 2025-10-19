@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { adminAPI } from '../../api/adminAPI';
 import Navbar from '../../components/Navbar/Navbar';
+import websocketService from '../../services/websocket';
 import './Dashboard.css';
 
 const AdminDashboard = () => {

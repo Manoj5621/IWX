@@ -378,6 +378,7 @@ input:checked + .slider:before {
   cursor: pointer;
   font-size: 13px;
   transition: all 0.2s ease;
+  color: #000;
 }
 
 .action-btn:hover {
@@ -475,6 +476,7 @@ input:checked + .slider:before {
   cursor: pointer;
   font-size: 12px;
   transition: all 0.2s ease;
+  color: #000;
 }
 
 .set-default-btn:hover {
@@ -830,6 +832,7 @@ input:checked + .slider:before {
   cursor: pointer;
   font-size: 13px;
   transition: all 0.2s ease;
+  color: #000;
 }
 
 .change-password-btn:hover, .view-activity-btn:hover, .manage-devices-btn:hover {

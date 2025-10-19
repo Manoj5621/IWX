@@ -3,7 +3,6 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordRequestForm
 from models.user import UserCreate, UserResponse, Token, UserLogin, UserUpdate
 from services.user_service import UserService
 from auth.security import create_access_token
@@ -34,10 +33,9 @@ async def register(user_data: UserCreate):
         )
 
 @router.post("/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login(login_data: UserLogin):
     """Login user and return access token"""
     try:
-        login_data = UserLogin(email=form_data.username, password=form_data.password)
         user = await UserService.authenticate_user(login_data)
 
         if not user:
@@ -54,7 +52,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             )
 
         access_token = create_access_token(data={"sub": user.id, "role": user.role.value})
-        return Token(access_token=access_token)
+        return Token(access_token=access_token, user=UserResponse(**user.dict()))
     except HTTPException:
         raise
     except Exception as e:

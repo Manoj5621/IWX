@@ -163,9 +163,9 @@ const Home = () => {
     const loadProducts = async () => {
       try {
         const [featured, trending, newArrivals] = await Promise.all([
-          productAPI.getProducts({ featured: true, limit: 4 }),
-          productAPI.getProducts({ trending: true, limit: 4 }),
-          productAPI.getProducts({ new: true, limit: 4 })
+          productAPI.getFeaturedProducts({ limit: 4 }),
+          productAPI.getTrendingProducts({ limit: 4 }),
+          productAPI.getNewArrivals({ limit: 4 })
         ]);
 
         setFeaturedProducts(featured);
