@@ -323,7 +323,7 @@ const Home = () => {
             ) : (
               featuredProducts.map((product, index) => (
                 <motion.div
-                  key={product.id}
+                  key={product.id || index}
                   className="product-card"
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
@@ -370,7 +370,7 @@ const Home = () => {
             ) : (
               newArrivals.map((product, index) => (
                 <motion.div
-                  key={product.id}
+                  key={product.id || index}
                   className="product-card"
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}

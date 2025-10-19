@@ -1,7 +1,4 @@
-import React, { useState, useRef, Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Environment, SoftShadows, Loader } from '@react-three/drei';
-import { MaleModel, FemaleModel, SampleModel } from '../components/ThreeJS/ThreeJS';
+import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/Navbar/Navbar';
 import './ModelViewer.css';
@@ -111,17 +108,37 @@ const ModelViewer = () => {
 
 const renderModel = () => {
   if (uploadedImage) {
-    return <SampleModel scale={1.2} outfit={selectedOutfit} />;
+    return (
+      <div className="model-placeholder">
+        <div className="model-image-container">
+          <img src={uploadedImage} alt="Your uploaded photo" className="uploaded-model-image" />
+          {selectedOutfit && (
+            <div className="outfit-overlay">
+              <img src={selectedOutfit.image} alt={selectedOutfit.name} className="outfit-preview" />
+            </div>
+          )}
+        </div>
+        <p className="model-placeholder-text">Virtual Try-On Preview</p>
+      </div>
+    );
   }
 
-  switch (currentModel) {
-    case 'male':
-      return <MaleModel scale={1.2} outfit={selectedOutfit} />;
-    case 'female':
-      return <FemaleModel scale={1.2} outfit={selectedOutfit} />;
-    default:
-      return <MaleModel scale={1.2} outfit={selectedOutfit} />;
-  }
+  return (
+    <div className="model-placeholder">
+      <div className="model-icon-large">
+        {currentModel === 'male' ? '👨' : '👩'}
+      </div>
+      <p className="model-placeholder-text">
+        {currentModel === 'male' ? 'Male Model' : 'Female Model'}
+      </p>
+      {selectedOutfit && (
+        <div className="outfit-preview-static">
+          <img src={selectedOutfit.image} alt={selectedOutfit.name} />
+          <p>{selectedOutfit.name}</p>
+        </div>
+      )}
+    </div>
+  );
 };
 
 
@@ -284,70 +301,12 @@ const renderModel = () => {
               )}
             </div>
 
-            {/* 3D Canvas */}
+            {/* Model Display */}
             <div className="canvas-container">
-              <Canvas shadows camera={{ position: [0, 0, 8], fov: 45 }}>
-                <color attach="background" args={['#f8f9fa']} />
-                <ambientLight intensity={0.4} />
-                <directionalLight
-                  position={[10, 10, 5]}
-                  intensity={1}
-                  castShadow
-                  shadow-mapSize={[1024, 1024]}
-                  shadow-camera-far={50}
-                  shadow-camera-left={-10}
-                  shadow-camera-right={10}
-                  shadow-camera-top={10}
-                  shadow-camera-bottom={-10}
-                />
-                <pointLight position={[-10, -10, -10]} intensity={0.5} color="#4A90E2" />
-                
-                <Environment preset="apartment" />
-                <SoftShadows size={40} samples={16} />
-                
-                <Suspense fallback={null}>
-                  {renderModel()}
-                </Suspense>
-                
-                <OrbitControls
-                  enablePan={true}
-                  enableZoom={true}
-                  enableRotate={true}
-                  maxPolarAngle={Math.PI}
-                  minDistance={3}
-                  maxDistance={15}
-                  target={[0, 0.5, 0]}
-                />
-              </Canvas>
+              <div className="model-display">
+                {renderModel()}
+              </div>
          
-              {/* Model Selector */}
-              {!uploadedImage && (
-                <div className="model-selector">
-                  <h3>Select Model</h3>
-                  <div className="button-group">
-                    <button 
-                      className={`model-btn ${currentModel === 'male' ? 'active' : ''}`}
-                      onClick={() => {
-                        setCurrentModel('male');
-                        setSelectedOutfit(null);
-                      }}
-                    >
-                      <span className="model-icon">👨</span>
-                      <span>Male Model</span>
-                    </button>
-                    <button 
-                      className={`model-btn ${currentModel === 'female' ? 'active' : ''}`}
-                      onClick={() => {
-                        setCurrentModel('female');
-                        setSelectedOutfit(null);
-                      }}
-                    >
-                      <span className="model-icon">👩</span>
-                      <span>Female Model</span>
-                    </button>
-                  </div>
-                </div>
-              )}
               
             </div>
           </div>
@@ -488,7 +447,6 @@ const renderModel = () => {
         </div>
       </section>
 
-      <Loader />
     </div>
   );
 };

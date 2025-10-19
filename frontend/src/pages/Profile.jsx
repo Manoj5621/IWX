@@ -1,11 +1,16 @@
 // Profile.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useDispatch } from 'react-redux';
+import { logout } from '../redux/slices/authSlice';
 import { authAPI } from '../api/authAPI';
 import { orderAPI } from '../api/orderAPI';
+import { useAuth } from '../hooks/useAuth';
 import './Profile.css';
 
 const Profile = () => {
+  const { user } = useAuth();
+  const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState('profile');
   const [userData, setUserData] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -114,88 +119,31 @@ const Profile = () => {
   ];
 
   useEffect(() => {
-    fetchUserData();
-  }, []);
-
-  const fetchUserData = async () => {
-    try {
-      setLoading(true);
-      const user = await authAPI.getCurrentUser();
-      
-      if (user) {
-        setUserData(user);
-        setFormData({
-          firstName: user.first_name || '',
-          lastName: user.last_name || '',
-          phone: user.phone || '',
-          birthDate: user.birth_date || '',
-          gender: user.gender || '',
-          address: user.address || {
-            street: '',
-            city: '',
-            state: '',
-            zipCode: '',
-            country: ''
-          }
-        });
-        
-        if (user.preferences) {
-          setPreferences(user.preferences);
+    if (user) {
+      setUserData(user);
+      setFormData({
+        firstName: user.first_name || '',
+        lastName: user.last_name || '',
+        phone: user.phone || '',
+        birthDate: user.birth_date || '',
+        gender: user.gender || '',
+        address: user.address || {
+          street: '',
+          city: '',
+          state: '',
+          zipCode: '',
+          country: ''
         }
-      } else {
-        // Fallback to mock data if API fails
-        setUserData({
-          id: '1',
-          email: 'user@example.com',
-          first_name: 'John',
-          last_name: 'Doe',
-          phone: '+1 (555) 123-4567',
-          birth_date: '1990-01-01',
-          gender: 'male',
-          address: {
-            street: '123 Main St',
-            city: 'New York',
-            state: 'NY',
-            zipCode: '10001',
-            country: 'USA'
-          },
-          preferences: {
-            emailNewsletter: true,
-            smsNotifications: false,
-            promotions: true,
-            orderUpdates: true,
-            stockAlerts: true
-          },
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
-      }
-    } catch (err) {
-      console.error('Error fetching user data:', err);
-      setError('Failed to load user data');
-      // Set fallback data
-      setUserData({
-        id: '1',
-        email: 'user@example.com',
-        first_name: 'John',
-        last_name: 'Doe',
-        phone: '+1 (555) 123-4567',
-        birth_date: '1990-01-01',
-        gender: 'male',
-        address: {
-          street: '123 Main St',
-          city: 'New York',
-          state: 'NY',
-          zipCode: '10001',
-          country: 'USA'
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
       });
-    } finally {
+
+      if (user.preferences) {
+        setPreferences(user.preferences);
+      }
+      setLoading(false);
+    } else {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -361,6 +309,14 @@ const Profile = () => {
                 {item.label}
               </button>
             ))}
+            <button
+              className="logout-btn"
+              onClick={() => dispatch(logout())}
+              style={{ marginTop: '20px', backgroundColor: '#dc3545', color: 'white', border: 'none', padding: '10px 15px', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              <span>🚪</span>
+              Logout
+            </button>
           </div>
 
           {/* Account Stats */}

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 import { BrowserRouter as Router, Routes, Route} from "react-router-dom"
 import Home from './pages/Home'
@@ -15,11 +15,41 @@ import ReturnRefund from './pages/ReturnRefund'
 import Offers from './pages/Offers'
 import ModelViewer from './pages/ModelViewer'
 import Dashboard from './pages/admin/Dashboard'
+import ErrorPage from './pages/ErrorPage'
 import ProtectedRoute from './routes/ProtectedRoute'
 import PublicRoute from './routes/PublicRoute'
 import AdminRoute from './routes/AdminRoute'
+import { useSelector, useDispatch } from 'react-redux'
+import { loginSuccess, loginFailure, setLoading } from './redux/slices/authSlice'
+import { authAPI } from './api/authAPI'
 
 function App() {
+  const dispatch = useDispatch();
+  const isAuthenticated = useSelector(state => state.auth.isAuthenticated)
+  const loading = useSelector(state => state.auth.loading)
+
+  useEffect(() => {
+    const initAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const user = await authAPI.getCurrentUser();
+          dispatch(loginSuccess({ user, token }));
+        } catch (error) {
+          dispatch(loginFailure(error.message));
+          localStorage.removeItem('token');
+        }
+      } else {
+        dispatch(setLoading(false));
+      }
+    };
+    initAuth();
+  }, [dispatch]);
+
+  if (loading) {
+    return <div>Loading...</div>
+  }
+
   return (
     <Router>
       <Routes>
@@ -37,6 +67,12 @@ function App() {
         <Route path='/returnRefund' element={<ReturnRefund />} />
         <Route path='/offers' element={<Offers />} />
         <Route path='/modelViewer' element={<ModelViewer />} />
+        <Route path='/error/404' element={<ErrorPage type="404" />} />
+        <Route path='/error/500' element={<ErrorPage type="500" />} />
+        <Route path='/error/network' element={<ErrorPage type="network" />} />
+        <Route path='/error/timeout' element={<ErrorPage type="timeout" />} />
+        <Route path='/error' element={<ErrorPage />} />
+        <Route path='*' element={<ErrorPage type="404" />} />
       </Routes>
     </Router>
   )

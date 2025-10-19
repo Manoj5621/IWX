@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 import logging
 import uvicorn
 from contextlib import asynccontextmanager
@@ -18,8 +19,8 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 
 from routers import auth, products, orders, admin, websocket, ai
-from middleware.security import SecurityMiddleware, CORSMiddleware as CustomCORSMiddleware
 from middleware.logging import RequestLoggingMiddleware
+from middleware.security import SecurityMiddleware
 from services.user_service import UserService
 
 # Configure logging
@@ -68,13 +69,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
-)
-
-app.add_middleware(
-    CustomCORSMiddleware,
-    allow_origins=settings.cors_origins
 )
 
 app.add_middleware(
@@ -88,12 +84,12 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(auth.router)
-app.include_router(products.router)
-app.include_router(orders.router)
-app.include_router(admin.router)
-app.include_router(websocket.router)
-app.include_router(ai.router)
+app.include_router(auth.router, prefix="/api")
+app.include_router(products.router, prefix="/api")
+app.include_router(orders.router, prefix="/api")
+app.include_router(admin.router, prefix="/api")
+app.include_router(websocket.router, prefix="/api")
+app.include_router(ai.router, prefix="/api")
 
 # Log all API endpoints on startup
 logger.info("Registered API Endpoints:")
@@ -126,14 +122,51 @@ async def root():
         "health": "/health"
     }
 
-# Global exception handler
+# Global exception handlers
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions"""
+    logger.warning(f"HTTP exception: {exc.status_code} - {exc.detail}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "error": {
+                "code": exc.status_code,
+                "message": exc.detail
+            }
+        }
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle validation errors"""
+    logger.warning(f"Validation error: {exc.errors()}")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "success": False,
+            "error": {
+                "code": 422,
+                "message": "Validation error",
+                "details": exc.errors()
+            }
+        }
+    )
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Global exception handler"""
+    """Global exception handler for unhandled exceptions"""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error"}
+        content={
+            "success": False,
+            "error": {
+                "code": 500,
+                "message": "Internal server error. Please try again later."
+            }
+        }
     )
 
 if __name__ == "__main__":

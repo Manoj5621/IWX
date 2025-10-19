@@ -21,13 +21,12 @@
     "vite": "^7.1.6"
   },
   "dependencies": {
-    "@react-three/drei": "^10.7.6",
-    "@react-three/fiber": "^9.3.0",
+    "@reduxjs/toolkit": "^2.9.1",
     "axios": "^1.12.2",
     "framer-motion": "^12.23.16",
     "react": "19.0.0-rc.1",
     "react-dom": "19.0.0-rc.1",
-    "react-router-dom": "^7.9.1",
-    "three": "^0.180.0"
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.9.1"
   }
 }

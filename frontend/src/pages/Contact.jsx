@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import Navbar from '../components/Navbar/Navbar';
+import AlertBox from '../components/AlertBox';
 import './Contact.css';
 
 const Contact = () => {
@@ -12,6 +13,7 @@ const Contact = () => {
     message: ''
   });
   const [activeTab, setActiveTab] = useState('general');
+  const [alert, setAlert] = useState(null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -24,7 +26,10 @@ const Contact = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     // Form submission logic would go here
-    alert('Thank you for your message. We will get back to you soon!');
+    setAlert({
+      type: 'success',
+      message: 'Thank you for your message. We will get back to you soon!'
+    });
     setFormData({
       name: '',
       email: '',
@@ -78,6 +83,13 @@ const Contact = () => {
   return (
     <div className="contact-container">
       <Navbar />
+      {alert && (
+        <AlertBox
+          type={alert.type}
+          message={alert.message}
+          onClose={() => setAlert(null)}
+        />
+      )}
 
       {/* Hero Section */}
       <section className="contact-hero">

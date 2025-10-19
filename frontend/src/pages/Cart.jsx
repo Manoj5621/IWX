@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/Navbar/Navbar';
+import AlertBox from '../components/AlertBox';
 import './Cart.css';
 
 const Cart = () => {
@@ -48,6 +49,7 @@ const Cart = () => {
   const [showPromoInput, setShowPromoInput] = useState(false);
   const [suggestedItems, setSuggestedItems] = useState([]);
   const [giftWrap, setGiftWrap] = useState(false);
+  const [alert, setAlert] = useState(null);
 
   useEffect(() => {
     // Simulate loading suggested items
@@ -103,8 +105,15 @@ const Cart = () => {
   const applyPromoCode = () => {
     if (promoCode.toUpperCase() === 'IWX20') {
       setPromoApplied(true);
+      setAlert({
+        type: 'success',
+        message: 'Promo code applied successfully! 20% discount added.'
+      });
     } else {
-      alert('Invalid promo code. Try IWX20 for 20% off.');
+      setAlert({
+        type: 'error',
+        message: 'Invalid promo code. Try IWX20 for 20% off.'
+      });
     }
   };
 
@@ -116,7 +125,10 @@ const Cart = () => {
   const total = subtotal - discount + shipping + giftWrapFee + tax;
 
   const checkout = () => {
-    alert('Proceeding to checkout! This would redirect to payment in a real application.');
+    setAlert({
+      type: 'info',
+      message: 'Proceeding to checkout! This would redirect to payment in a real application.'
+    });
   };
 
   const addSuggestedItem = (item) => {
@@ -140,6 +152,13 @@ const Cart = () => {
   return (
     <div className="cart-page">
       <Navbar />
+      {alert && (
+        <AlertBox
+          type={alert.type}
+          message={alert.message}
+          onClose={() => setAlert(null)}
+        />
+      )}
 
       {/* Header */}
       <header className="cart-header">

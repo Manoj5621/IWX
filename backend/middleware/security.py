@@ -45,9 +45,25 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         process_time = time.time() - start_time
 
         # Log API call details
-        endpoint = request.scope.get('endpoint')
-        api_info = getattr(endpoint, '__doc__', 'No description available').strip()
-        logger.info(f"API Call: {request.method} {request.url.path} - Status: {response.status_code} - Info: {api_info}")
+        try:
+            endpoint = request.scope.get('endpoint') if request.scope else None
+            if endpoint is not None:
+                api_info = getattr(endpoint, '__doc__', None)
+                if api_info and isinstance(api_info, str):
+                    api_info = api_info.strip()
+                else:
+                    api_info = 'No description available'
+            else:
+                api_info = 'No description available'
+            logger.info(f"API Call: {request.method} {request.url.path} - Status: {response.status_code} - Info: {api_info}")
+        except Exception as e:
+            logger.error(f"Error logging API call: {e}")
+            # Skip logging if there's an issue
+            pass
+
+        # Skip security headers for OPTIONS requests to avoid conflicts
+        if request.method == "OPTIONS":
+            return response
 
         # Add security headers
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -143,28 +159,33 @@ class SecurityMiddleware(BaseHTTPMiddleware):
 class CORSMiddleware(BaseHTTPMiddleware):
     """CORS middleware"""
 
-    def __init__(self, app, allow_origins: list = None, allow_credentials: bool = True):
+    def __init__(self, app, allow_origins: list = None, allow_credentials: bool = True,
+                 allow_methods: list = None, allow_headers: list = None):
         super().__init__(app)
         self.allow_origins = allow_origins or ["*"]
         self.allow_credentials = allow_credentials
+        self.allow_methods = allow_methods or ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
+        self.allow_headers = allow_headers or ["*"]
 
     async def dispatch(self, request: Request, call_next):
+        # Handle preflight requests
         if request.method == "OPTIONS":
-            response = JSONResponse(content={"message": "OK"})
+            response = JSONResponse(content={"message": "CORS preflight successful"})
         else:
             response = await call_next(request)
 
-        # Add CORS headers
+        # Set CORS headers
+        origin = request.headers.get("Origin")
         if "*" in self.allow_origins:
             response.headers["Access-Control-Allow-Origin"] = "*"
-        else:
-            origin = request.headers.get("Origin")
-            if origin in self.allow_origins:
-                response.headers["Access-Control-Allow-Origin"] = origin
+        elif origin and origin in self.allow_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
 
-        response.headers["Access-Control-Allow-Credentials"] = str(self.allow_credentials).lower()
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, X-Requested-With"
+        if self.allow_credentials:
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+
+        response.headers["Access-Control-Allow-Methods"] = ", ".join(self.allow_methods)
+        response.headers["Access-Control-Allow-Headers"] = ", ".join(self.allow_headers) if "*" not in self.allow_headers else "*"
         response.headers["Access-Control-Max-Age"] = "86400"
 
         return response

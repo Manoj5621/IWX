@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
 import './Navbar.css';
 
@@ -9,6 +10,7 @@ const Navbar = () => {
   const [activeCategory, setActiveCategory] = useState(null);
   const navigate = useNavigate();
   const mobileMenuRef = useRef(null);
+  const { isAuthenticated } = useSelector((state) => state.auth);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -110,7 +112,7 @@ const Navbar = () => {
 
 
         <div className="header-right">
-          <button className="user-btn desktop-only" onClick={() => navigate('/profile')}>
+          <button className="user-btn desktop-only" onClick={() => navigate(isAuthenticated ? '/profile' : '/auth')}>
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
               <path d="M9 0C4.03 0 0 4.03 0 9C0 13.97 4.03 18 9 18C13.97 18 18 13.97 18 9C18 4.03 13.97 0 9 0ZM9 4C10.66 4 12 5.34 12 7C12 8.66 10.66 10 9 10C7.34 10 6 8.66 6 7C6 5.34 7.34 4 9 4ZM9 16C6.67 16 4.61 14.94 3.33 13.33C3.94 12.01 5.59 11 7.5 11H10.5C12.41 11 14.06 12.01 14.67 13.33C13.39 14.94 11.33 16 9 16Z" fill="black"/>
             </svg>
@@ -174,14 +176,14 @@ const Navbar = () => {
             <button
               className="mobile-action-btn"
               onClick={() => {
-                navigate('/profile');
+                navigate(isAuthenticated ? '/profile' : '/auth');
                 setIsMenuOpen(false);
               }}
             >
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                 <path d="M9 0C4.03 0 0 4.03 0 9C0 13.97 4.03 18 9 18C13.97 18 18 13.97 18 9C18 4.03 13.97 0 9 0ZM9 4C10.66 4 12 5.34 12 7C12 8.66 10.66 10 9 10C7.34 10 6 8.66 6 7C6 5.34 7.34 4 9 4ZM9 16C6.67 16 4.61 14.94 3.33 13.33C3.94 12.01 5.59 11 7.5 11H10.5C12.41 11 14.06 12.01 14.67 13.33C13.39 14.94 11.33 16 9 16Z" fill="black"/>
               </svg>
-              Profile
+              {isAuthenticated ? 'Profile' : 'Login'}
             </button>
             <button
               className="mobile-action-btn"
