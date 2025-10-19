@@ -326,7 +326,7 @@
   position: absolute;
   top: 10px;
   right: 10px;
-  background: #fff;
+  background: #f00404;
   border: none;
   width: 30px;
   height: 30px;
@@ -335,9 +335,29 @@
   z-index: 2;
 }
 
-.sale-badge, .new-badge, .eco-badge {
+.sale-badge{
   position: absolute;
   top: 10px;
+  left: 10px;
+  font-size: 10px;
+  padding: 3px 8px;
+  font-weight: 500;
+  z-index: 2;
+}
+
+.new-badge {
+  position: absolute;
+  top: 58px;
+  left: 50px;
+  font-size: 10px;
+  padding: 3px 8px;
+  font-weight: 500;
+  z-index: 2;
+}
+
+.eco-badge {
+  position: absolute;
+  top: 40px;
   left: 10px;
   font-size: 10px;
   padding: 3px 8px;
@@ -383,14 +403,14 @@
 .quick-view, .add-to-bag {
   padding: 8px;
   font-size: 12px;
-  border: 1px solid #000;
+  border: 1px solid #080707;
   background: #fff;
   cursor: pointer;
 }
 
 .add-to-bag {
-  background: #000;
-  color: #fff;
+  background: #fc0000;
+  color: #d60909;
 }
 
 .product-info {
@@ -467,19 +487,20 @@
 
 .pagination-btn {
   padding: 8px 12px;
-  border: 1px solid #ddd;
-  background: #fff;
+  border: 1px solid #000000;
+  background: #ec0303;
   cursor: pointer;
   font-size: 14px;
 }
 
 .pagination-btn.active {
-  background: #000;
-  color: #fff;
+  background: #fff7f7;
+  color: #000000;
   border-color: #000;
 }
 
 .pagination-btn.disabled {
+  color: #f1f1f1;
   opacity: 0.5;
   cursor: not-allowed;
 }
