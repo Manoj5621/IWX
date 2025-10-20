@@ -1,22 +1,32 @@
-// Profile.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useDispatch } from 'react-redux';
-import { logout } from '../redux/slices/authSlice';
+import { useDispatch, useSelector } from 'react-redux';
+import { logout, updateUser } from '../redux/slices/authSlice';
 import { authAPI } from '../api/authAPI';
 import { orderAPI } from '../api/orderAPI';
-import { useAuth } from '../hooks/useAuth';
+import { addressAPI } from '../api/addressAPI';
+import { paymentAPI } from '../api/paymentAPI';
+import { wishlistAPI } from '../api/wishlistAPI';
+import { notificationAPI } from '../api/notificationAPI';
+import { securityAPI } from '../api/securityAPI';
 import './Profile.css';
+import AddressForm from '../components/Profile/AddressForm';
+import PaymentForm from '../components/Profile/PaymentForm';
+import AlertBox from '../components/AlertBox';
+import ErrorPage from './ErrorPage';
+import { ChangePassword, TwoFactorAuth, LoginActivity, ConnectedDevices } from '../components/Profile/SecurityComponents';
 
 const Profile = () => {
-  const { user } = useAuth();
   const dispatch = useDispatch();
+  const { user } = useSelector(state => state.auth);
   const [activeTab, setActiveTab] = useState('profile');
   const [userData, setUserData] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [alertType, setAlertType] = useState('success');
+  const [majorError, setMajorError] = useState(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -39,84 +49,51 @@ const Profile = () => {
     stockAlerts: true
   });
 
-  // Mock data for demonstration
-  const mockOrders = [
-    {
-      id: 'ORD-001',
-      date: '2024-01-15',
-      status: 'delivered',
-      items: 2,
-      total: 149.99,
-      trackingNumber: 'TRK123456789'
-    },
-    {
-      id: 'ORD-002',
-      date: '2024-01-10',
-      status: 'processing',
-      items: 1,
-      total: 79.99,
-      trackingNumber: 'TRK987654321'
-    }
-  ];
+  // Real data states
+  const [orders, setOrders] = useState([]);
+  const [addresses, setAddresses] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [wishlist, setWishlist] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationPreferences, setNotificationPreferences] = useState({
+    email_notifications: true,
+    sms_notifications: false,
+    push_notifications: true,
+    order_updates: true,
+    payment_updates: true,
+    shipping_updates: true,
+    promotional_emails: true,
+    product_alerts: true,
+    security_alerts: true,
+    system_notifications: true
+  });
+  const [securitySettings, setSecuritySettings] = useState({});
+  const [billingHistory, setBillingHistory] = useState([]);
+  const [loginHistory, setLoginHistory] = useState([]);
+  const [connectedDevices, setConnectedDevices] = useState([]);
 
-  const mockAddresses = [
-    {
-      id: 1,
-      name: 'Home',
-      street: '123 Main St',
-      city: 'New York',
-      state: 'NY',
-      zipCode: '10001',
-      country: 'USA',
-      isDefault: true
-    },
-    {
-      id: 2,
-      name: 'Work',
-      street: '456 Office Blvd',
-      city: 'New York',
-      state: 'NY',
-      zipCode: '10002',
-      country: 'USA',
-      isDefault: false
-    }
-  ];
+  // Loading states for each section
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [loadingWishlist, setLoadingWishlist] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [loadingSecurity, setLoadingSecurity] = useState(false);
 
-  const mockPaymentMethods = [
-    {
-      id: 1,
-      type: 'visa',
-      last4: '4242',
-      expiry: '12/25',
-      name: 'Visa ending in 4242'
-    },
-    {
-      id: 2,
-      type: 'mastercard',
-      last4: '8888',
-      expiry: '08/24',
-      name: 'Mastercard ending in 8888'
-    }
-  ];
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showTwoFactorAuth, setShowTwoFactorAuth] = useState(false);
+  const [showLoginActivity, setShowLoginActivity] = useState(false);
+  const [showConnectedDevices, setShowConnectedDevices] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(null);
+  const [editingPayment, setEditingPayment] = useState(null);
 
-  const mockWishlist = [
-    {
-      id: 1,
-      name: 'Premium Wireless Headphones',
-      price: 199.99,
-      image: '/api/placeholder/300/300',
-      size: 'One Size',
-      inStock: true
-    },
-    {
-      id: 2,
-      name: 'Smart Fitness Watch',
-      price: 299.99,
-      image: '/api/placeholder/300/300',
-      size: 'M',
-      inStock: false
-    }
-  ];
+  // Clear errors when changing tabs
+  useEffect(() => {
+    setError('');
+    setSuccess('');
+  }, [activeTab]);
 
   useEffect(() => {
     if (user) {
@@ -139,15 +116,127 @@ const Profile = () => {
       if (user.preferences) {
         setPreferences(user.preferences);
       }
-      setLoading(false);
-    } else {
-      setLoading(false);
+
+      // Load real data for all sections with error handling
+      loadInitialData();
     }
   }, [user]);
 
+  const loadInitialData = async () => {
+    try {
+      await Promise.allSettled([
+        loadOrders(),
+        loadAddresses(),
+        loadPaymentMethods(),
+        loadWishlist(),
+        loadNotifications(),
+        loadSecurityData()
+      ]);
+    } catch (error) {
+      console.error('Error loading initial data:', error);
+      setMajorError({
+        type: 'network',
+        message: 'Failed to load profile data',
+        details: error.message
+      });
+    }
+  };
+
+  // Data loading functions with better error handling
+  const loadOrders = async () => {
+    try {
+      setLoadingOrders(true);
+      const response = await orderAPI.getOrders();
+      setOrders(response.orders || []);
+    } catch (err) {
+      console.error('Error loading orders:', err);
+      throw err;
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const loadAddresses = async () => {
+    try {
+      setLoadingAddresses(true);
+      const response = await addressAPI.getAddresses();
+      setAddresses(response.addresses || []);
+    } catch (err) {
+      console.error('Error loading addresses:', err);
+      throw err;
+    } finally {
+      setLoadingAddresses(false);
+    }
+  };
+
+  const loadPaymentMethods = async () => {
+    try {
+      setLoadingPayments(true);
+      const response = await paymentAPI.getPaymentMethods();
+      setPaymentMethods(response.payments || []);
+      setBillingHistory(response.billing_history || []);
+    } catch (err) {
+      console.error('Error loading payment methods:', err);
+      throw err;
+    } finally {
+      setLoadingPayments(false);
+    }
+  };
+
+  const loadWishlist = async () => {
+    try {
+      setLoadingWishlist(true);
+      const response = await wishlistAPI.getWishlist();
+      setWishlist(response.items || []);
+    } catch (err) {
+      console.error('Error loading wishlist:', err);
+      throw err;
+    } finally {
+      setLoadingWishlist(false);
+    }
+  };
+
+  const loadNotifications = async () => {
+    try {
+      setLoadingNotifications(true);
+      const [notificationsResponse, preferencesResponse] = await Promise.all([
+        notificationAPI.getNotifications(),
+        notificationAPI.getNotificationPreferences()
+      ]);
+      setNotifications(notificationsResponse.notifications || []);
+      if (preferencesResponse) {
+        setNotificationPreferences(preferencesResponse);
+      }
+    } catch (err) {
+      console.error('Error loading notifications:', err);
+      throw err;
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  const loadSecurityData = async () => {
+    try {
+      setLoadingSecurity(true);
+      const [settingsResponse, loginHistoryResponse, devicesResponse] = await Promise.all([
+        securityAPI.getSecuritySettings(),
+        securityAPI.getLoginHistory(),
+        securityAPI.getConnectedDevices()
+      ]);
+      setSecuritySettings(settingsResponse || {});
+      setLoginHistory(loginHistoryResponse || []);
+      setConnectedDevices(devicesResponse || []);
+    } catch (err) {
+      console.error('Error loading security data:', err);
+      throw err;
+    } finally {
+      setLoadingSecurity(false);
+    }
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
+
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
       setFormData(prev => ({
@@ -165,18 +254,34 @@ const Profile = () => {
     }
   };
 
-  const handlePreferenceChange = (preference) => {
-    setPreferences(prev => ({
-      ...prev,
-      [preference]: !prev[preference]
-    }));
+  const handlePreferenceChange = async (preference) => {
+    const newPreferences = {
+      ...preferences,
+      [preference]: !preferences[preference]
+    };
+    setPreferences(newPreferences);
+
+    try {
+      const updatedUser = await authAPI.updateCurrentUser({ preferences: newPreferences });
+      dispatch(updateUser(updatedUser));
+      setSuccess('Preferences updated successfully!');
+      setAlertType('success');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Error updating preferences:', err);
+      setPreferences(preferences);
+      setError('Failed to update preferences. Please try again.');
+      setAlertType('error');
+      setTimeout(() => setError(''), 3000);
+    }
   };
 
   const handleSave = async () => {
     try {
       setError('');
       setSuccess('');
-      
+      setLoading(true);
+
       const updateData = {
         first_name: formData.firstName,
         last_name: formData.lastName,
@@ -187,21 +292,22 @@ const Profile = () => {
         preferences: preferences
       };
 
-      await authAPI.updateCurrentUser(updateData);
-      
-      setUserData(prev => ({
-        ...prev,
-        ...updateData
-      }));
-      
-      setIsEditing(false);
-      setSuccess('Profile updated successfully!');
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(''), 3000);
+      const updatedUser = await authAPI.updateCurrentUser(updateData);
+
+      if (updatedUser) {
+        dispatch(updateUser(updatedUser));
+        setUserData(updatedUser);
+        setSuccess('Profile updated successfully!');
+        setAlertType('success');
+        setTimeout(() => setSuccess(''), 3000);
+      }
     } catch (err) {
       console.error('Error updating profile:', err);
       setError('Failed to update profile. Please try again.');
+      setAlertType('error');
+    } finally {
+      setLoading(false);
+      setIsEditing(false);
     }
   };
 
@@ -233,6 +339,107 @@ const Profile = () => {
     setError('');
   };
 
+  // CRUD operation handlers with better error handling
+  const handleSetDefaultAddress = async (addressId) => {
+    try {
+      await addressAPI.setDefaultAddress(addressId);
+      await loadAddresses();
+      setSuccess('Default address updated successfully!');
+      setAlertType('success');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Error setting default address:', err);
+      setError('Failed to update default address. Please try again.');
+      setAlertType('error');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const handleDeleteAddress = async (addressId) => {
+    if (!confirm('Are you sure you want to delete this address?')) return;
+
+    try {
+      await addressAPI.deleteAddress(addressId);
+      await loadAddresses();
+      setSuccess('Address deleted successfully!');
+      setAlertType('success');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Error deleting address:', err);
+      setError('Failed to delete address. Please try again.');
+      setAlertType('error');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const handleSetDefaultPayment = async (paymentId) => {
+    try {
+      await paymentAPI.setDefaultPaymentMethod(paymentId);
+      await loadPaymentMethods();
+      setSuccess('Default payment method updated successfully!');
+      setAlertType('success');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Error setting default payment:', err);
+      setError('Failed to update default payment method. Please try again.');
+      setAlertType('error');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const handleDeletePaymentMethod = async (paymentId) => {
+    if (!confirm('Are you sure you want to delete this payment method?')) return;
+
+    try {
+      await paymentAPI.deletePaymentMethod(paymentId);
+      await loadPaymentMethods();
+      setSuccess('Payment method deleted successfully!');
+      setAlertType('success');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Error deleting payment method:', err);
+      setError('Failed to delete payment method. Please try again.');
+      setAlertType('error');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const handleRemoveFromWishlist = async (itemId) => {
+    try {
+      await wishlistAPI.removeFromWishlist(itemId);
+      await loadWishlist();
+      setSuccess('Item removed from wishlist!');
+      setAlertType('success');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Error removing from wishlist:', err);
+      setError('Failed to remove item from wishlist. Please try again.');
+      setAlertType('error');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  const handleNotificationPreferenceChange = async (preferenceKey, value) => {
+    try {
+      const updatedPreferences = {
+        ...notificationPreferences,
+        [preferenceKey]: value
+      };
+      setNotificationPreferences(updatedPreferences);
+
+      await notificationAPI.updateNotificationPreferences(updatedPreferences);
+      setSuccess('Notification preferences updated successfully!');
+      setAlertType('success');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      console.error('Error updating notification preferences:', err);
+      setNotificationPreferences(notificationPreferences);
+      setError('Failed to update notification preferences. Please try again.');
+      setAlertType('error');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'delivered': return '#4caf50';
@@ -248,13 +455,90 @@ const Profile = () => {
     return `${userData.first_name?.[0] || ''}${userData.last_name?.[0] || ''}`.toUpperCase() || 'U';
   };
 
-  if (loading) {
+  // Show error page for major errors
+  if (majorError) {
+    return (
+      <ErrorPage 
+        type={majorError.type} 
+        message={majorError.message}
+        details={majorError.details}
+      />
+    );
+  }
+
+  if (!userData) {
     return (
       <div className="profile-container">
-        <div className="loading-spinner">Loading...</div>
+        <div className="loading-spinner">Loading user data...</div>
       </div>
     );
   }
+
+  const handleAddAddress = () => {
+    setEditingAddress(null);
+    setShowAddressForm(true);
+  };
+
+  const handleEditAddress = (address) => {
+    setEditingAddress(address);
+    setShowAddressForm(true);
+  };
+
+  const handleSaveAddress = async (addressData) => {
+    try {
+      setError('');
+      setSuccess('');
+      if (editingAddress) {
+        await addressAPI.updateAddress(editingAddress.id, addressData);
+        setSuccess('Address updated successfully!');
+        setAlertType('success');
+      } else {
+        await addressAPI.createAddress(addressData);
+        setSuccess('Address added successfully!');
+        setAlertType('success');
+      }
+      await loadAddresses();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Error saving address:', error);
+      setError(error.response?.data?.detail || 'Failed to save address. Please try again.');
+      setAlertType('error');
+      setTimeout(() => setError(''), 5000);
+    }
+  };
+
+  const handleAddPayment = () => {
+    setEditingPayment(null);
+    setShowPaymentForm(true);
+  };
+
+  const handleEditPayment = (payment) => {
+    setEditingPayment(payment);
+    setShowPaymentForm(true);
+  };
+
+  const handleSavePayment = async (paymentData) => {
+    try {
+      setError('');
+      setSuccess('');
+      if (editingPayment) {
+        await paymentAPI.updatePaymentMethod(editingPayment.id, paymentData);
+        setSuccess('Payment method updated successfully!');
+        setAlertType('success');
+      } else {
+        await paymentAPI.createPaymentMethod(paymentData);
+        setSuccess('Payment method added successfully!');
+        setAlertType('success');
+      }
+      await loadPaymentMethods();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Error saving payment method:', error);
+      setError('Failed to save payment method. Please try again.');
+      setAlertType('error');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
 
   return (
     <div className="profile-container">
@@ -265,16 +549,26 @@ const Profile = () => {
       </div>
 
       {/* Success/Error Messages */}
-      {error && (
-        <div className="error-message" style={{color: 'red', marginBottom: '20px', padding: '10px', background: '#ffe6e6', borderRadius: '4px'}}>
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="success-message" style={{color: 'green', marginBottom: '20px', padding: '10px', background: '#e6ffe6', borderRadius: '4px'}}>
-          {success}
-        </div>
-      )}
+      <AnimatePresence>
+        {error && (
+          <AlertBox
+            type="error"
+            message={error}
+            onClose={() => setError('')}
+            autoHide={true}
+            duration={5000}
+          />
+        )}
+        {success && (
+          <AlertBox
+            type={alertType}
+            message={success}
+            onClose={() => setSuccess('')}
+            autoHide={true}
+            duration={3000}
+          />
+        )}
+      </AnimatePresence>
 
       <div className="profile-content">
         {/* Sidebar */}
@@ -324,15 +618,15 @@ const Profile = () => {
             <h3>Account Stats</h3>
             <div className="stat-item">
               <span className="stat-label">Orders</span>
-              <span className="stat-value">{mockOrders.length}</span>
+              <span className="stat-value">{orders.length}</span>
             </div>
             <div className="stat-item">
               <span className="stat-label">Wishlist</span>
-              <span className="stat-value">{mockWishlist.length}</span>
+              <span className="stat-value">{wishlist.length}</span>
             </div>
             <div className="stat-item">
               <span className="stat-label">Addresses</span>
-              <span className="stat-value">{mockAddresses.length}</span>
+              <span className="stat-value">{addresses.length}</span>
             </div>
           </div>
         </div>
@@ -361,8 +655,8 @@ const Profile = () => {
                         <button className="cancel-btn" onClick={handleCancel}>
                           Cancel
                         </button>
-                        <button className="save-btn" onClick={handleSave}>
-                          Save Changes
+                        <button className="save-btn" onClick={handleSave} disabled={loading}>
+                          {loading ? 'Saving...' : 'Save Changes'}
                         </button>
                       </div>
                     )}
@@ -507,7 +801,7 @@ const Profile = () => {
                   <div className="preferences-section">
                     <h3>Communication Preferences</h3>
                     <p>Manage how we communicate with you</p>
-                    
+
                     <div className="preference-item">
                       <div>
                         <h4>Email Newsletter</h4>
@@ -518,7 +812,6 @@ const Profile = () => {
                           type="checkbox"
                           checked={preferences.emailNewsletter}
                           onChange={() => handlePreferenceChange('emailNewsletter')}
-                          disabled={!isEditing}
                         />
                         <span className="slider"></span>
                       </label>
@@ -534,7 +827,6 @@ const Profile = () => {
                           type="checkbox"
                           checked={preferences.smsNotifications}
                           onChange={() => handlePreferenceChange('smsNotifications')}
-                          disabled={!isEditing}
                         />
                         <span className="slider"></span>
                       </label>
@@ -550,7 +842,6 @@ const Profile = () => {
                           type="checkbox"
                           checked={preferences.promotions}
                           onChange={() => handlePreferenceChange('promotions')}
-                          disabled={!isEditing}
                         />
                         <span className="slider"></span>
                       </label>
@@ -566,7 +857,6 @@ const Profile = () => {
                           type="checkbox"
                           checked={preferences.orderUpdates}
                           onChange={() => handlePreferenceChange('orderUpdates')}
-                          disabled={!isEditing}
                         />
                         <span className="slider"></span>
                       </label>
@@ -582,7 +872,6 @@ const Profile = () => {
                           type="checkbox"
                           checked={preferences.stockAlerts}
                           onChange={() => handlePreferenceChange('stockAlerts')}
-                          disabled={!isEditing}
                         />
                         <span className="slider"></span>
                       </label>
@@ -597,64 +886,52 @@ const Profile = () => {
                   <div className="tab-header">
                     <h2>Order History</h2>
                   </div>
-
                   <div className="orders-list">
-                    {mockOrders.map(order => (
-                      <div key={order.id} className="order-card">
-                        <div className="order-header">
-                          <div>
-                            <h3>Order #{order.id}</h3>
-                            <p>Placed on {new Date(order.date).toLocaleDateString()}</p>
+                    {loadingOrders ? (
+                      <div className="loading-spinner">Loading orders...</div>
+                    ) : orders.length === 0 ? (
+                      <div className="empty-state">
+                        <p>No orders found. Start shopping to see your order history!</p>
+                      </div>
+                    ) : (
+                      orders.map(order => (
+                        <div key={order.id} className="order-card">
+                          <div className="order-header">
+                            <div>
+                              <h3>Order #{order.order_number}</h3>
+                              <p>Placed on {new Date(order.created_at).toLocaleDateString()}</p>
+                            </div>
+                            <span
+                              className="status-badge"
+                              style={{backgroundColor: getStatusColor(order.status)}}
+                            >
+                              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                            </span>
                           </div>
-                          <span 
-                            className="status-badge"
-                            style={{backgroundColor: getStatusColor(order.status)}}
-                          >
-                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                          </span>
+                          <div className="order-details">
+                            <div className="order-info">
+                              <div className="info-item">
+                                <span className="label">Items</span>
+                                <span className="value">{order.items.length}</span>
+                              </div>
+                              <div className="info-item">
+                                <span className="label">Total</span>
+                                <span className="value">${order.total_amount}</span>
+                              </div>
+                              <div className="info-item">
+                                <span className="label">Tracking</span>
+                                <span className="value">{order.tracking_number || 'Not available'}</span>
+                              </div>
+                            </div>
+                            <div className="order-actions">
+                              <button className="action-btn">View Details</button>
+                              <button className="action-btn">Track Order</button>
+                              <button className="action-btn">Reorder</button>
+                            </div>
+                          </div>
                         </div>
-                        <div className="order-details">
-                          <div className="order-info">
-                            <div className="info-item">
-                              <span className="label">Items</span>
-                              <span className="value">{order.items}</span>
-                            </div>
-                            <div className="info-item">
-                              <span className="label">Total</span>
-                              <span className="value">${order.total}</span>
-                            </div>
-                            <div className="info-item">
-                              <span className="label">Tracking</span>
-                              <span className="value">{order.trackingNumber}</span>
-                            </div>
-                          </div>
-                          <div className="order-actions">
-                            <button className="action-btn">View Details</button>
-                            <button className="action-btn">Track Order</button>
-                            <button className="action-btn">Reorder</button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="returns-section">
-                    <h3>Returns & Refunds</h3>
-                    <p>Manage your returns and refund requests</p>
-                    <div className="returns-info">
-                      <div className="returns-card">
-                        <h4>Easy Returns</h4>
-                        <p>30-day return policy for all items</p>
-                      </div>
-                      <div className="returns-card">
-                        <h4>Free Shipping</h4>
-                        <p>Free return shipping on all orders</p>
-                      </div>
-                      <div className="returns-card">
-                        <h4>Quick Refunds</h4>
-                        <p>Refunds processed within 3-5 business days</p>
-                      </div>
-                    </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
@@ -664,46 +941,60 @@ const Profile = () => {
                 <div className="tab-content">
                   <div className="tab-header">
                     <h2>Saved Addresses</h2>
-                    <button className="add-address-btn">Add New Address</button>
+                    <button className="add-address-btn" onClick={handleAddAddress}>
+                      Add New Address
+                    </button>
                   </div>
 
                   <div className="addresses-grid">
-                    {mockAddresses.map(address => (
-                      <div key={address.id} className="address-card">
-                        <div className="address-header">
-                          <h3>{address.name}</h3>
-                          {address.isDefault && <span className="default-badge">Default</span>}
+                    {loadingAddresses ? (
+                      <div className="loading-spinner">Loading addresses...</div>
+                    ) : addresses.length === 0 ? (
+                      <div className="empty-state">
+                        <p>No addresses saved. Add your first address to make checkout faster!</p>
+                        <button className="add-address-btn" onClick={handleAddAddress}>
+                          Add New Address
+                        </button>
+                      </div>
+                    ) : (
+                      addresses.map(address => (
+                        <div key={address.id} className="address-card">
+                          <div className="address-header">
+                            <h3>{address.name}</h3>
+                            {address.is_default && <span className="default-badge">Default</span>}
+                          </div>
+                          <div className="address-details">
+                            <p>{address.first_name} {address.last_name}</p>
+                            <p>{address.street_address}</p>
+                            <p>{address.city}, {address.state} {address.postal_code}</p>
+                            <p>{address.country}</p>
+                            {address.phone && <p>📞 {address.phone}</p>}
+                          </div>
+                          <div className="address-actions">
+                            <button 
+                              className="set-default-btn"
+                              onClick={() => handleEditAddress(address)}
+                            >
+                              Edit
+                            </button>
+                            {!address.is_default && (
+                              <button
+                                className="set-default-btn"
+                                onClick={() => handleSetDefaultAddress(address.id)}
+                              >
+                                Set as Default
+                              </button>
+                            )}
+                            <button
+                              className="remove-btn"
+                              onClick={() => handleDeleteAddress(address.id)}
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
-                        <div className="address-details">
-                          <p>{address.street}</p>
-                          <p>{address.city}, {address.state} {address.zipCode}</p>
-                          <p>{address.country}</p>
-                        </div>
-                        <div className="address-actions">
-                          <button className="set-default-btn">Set as Default</button>
-                          <button className="remove-btn">Remove</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="shipping-info">
-                    <h3>Shipping Options</h3>
-                    <p>Available shipping methods for your location</p>
-                    <div className="shipping-options">
-                      <div className="shipping-option">
-                        <h4>Standard Shipping</h4>
-                        <p>5-7 business days • Free</p>
-                      </div>
-                      <div className="shipping-option">
-                        <h4>Express Shipping</h4>
-                        <p>2-3 business days • $9.99</p>
-                      </div>
-                      <div className="shipping-option">
-                        <h4>Next Day Delivery</h4>
-                        <p>1 business day • $19.99</p>
-                      </div>
-                    </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
@@ -713,51 +1004,60 @@ const Profile = () => {
                 <div className="tab-content">
                   <div className="tab-header">
                     <h2>Payment Methods</h2>
-                    <button className="add-payment-btn">Add Payment Method</button>
+                    <button className="add-payment-btn" onClick={handleAddPayment}>
+                      Add Payment Method
+                    </button>
                   </div>
 
                   <div className="payment-methods-list">
-                    {mockPaymentMethods.map(payment => (
-                      <div key={payment.id} className="payment-card">
-                        <div className="payment-header">
-                          <div className="payment-type">
-                            <div className="card-icon">{payment.type === 'visa' ? '💳' : '💳'}</div>
-                            <div>
-                              <h3>{payment.name}</h3>
-                              <p>Expires {payment.expiry}</p>
+                    {loadingPayments ? (
+                      <div className="loading-spinner">Loading payment methods...</div>
+                    ) : paymentMethods.length === 0 ? (
+                      <div className="empty-state">
+                        <p>No payment methods saved. Add a payment method for faster checkout!</p>
+                        <button className="add-payment-btn" onClick={handleAddPayment}>
+                          Add Payment Method
+                        </button>
+                      </div>
+                    ) : (
+                      paymentMethods.map(payment => (
+                        <div key={payment.id} className="payment-card">
+                          <div className="payment-header">
+                            <div className="payment-type">
+                              <div className="card-icon">💳</div>
+                              <div>
+                                <h3>{payment.display_name}</h3>
+                                {payment.expiry_month && (
+                                  <p>Expires {payment.expiry_month}/{payment.expiry_year}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="payment-actions">
+                              <button 
+                                className="action-btn"
+                                onClick={() => handleEditPayment(payment)}
+                              >
+                                Edit
+                              </button>
+                              {!payment.is_default && (
+                                <button
+                                  className="set-default-btn"
+                                  onClick={() => handleSetDefaultPayment(payment.id)}
+                                >
+                                  Set Default
+                                </button>
+                              )}
+                              <button
+                                className="remove-btn"
+                                onClick={() => handleDeletePaymentMethod(payment.id)}
+                              >
+                                Remove
+                              </button>
                             </div>
                           </div>
-                          <div className="payment-actions">
-                            <button className="action-btn">Edit</button>
-                            <button className="remove-btn">Remove</button>
-                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="billing-history">
-                    <h3>Billing History</h3>
-                    <div className="billing-table">
-                      <div className="billing-header">
-                        <div>Date</div>
-                        <div>Description</div>
-                        <div>Amount</div>
-                        <div>Status</div>
-                      </div>
-                      <div className="billing-row">
-                        <div>Jan 15, 2024</div>
-                        <div>Order #ORD-001</div>
-                        <div>$149.99</div>
-                        <div className="paid">Paid</div>
-                      </div>
-                      <div className="billing-row">
-                        <div>Jan 10, 2024</div>
-                        <div>Order #ORD-002</div>
-                        <div>$79.99</div>
-                        <div className="pending">Pending</div>
-                      </div>
-                    </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
@@ -770,48 +1070,40 @@ const Profile = () => {
                   </div>
 
                   <div className="wishlist-grid">
-                    {mockWishlist.map(item => (
-                      <div key={item.id} className="wishlist-item">
-                        <div className="wishlist-image">
-                          <img src={item.image} alt={item.name} />
-                          {!item.inStock && <div className="out-of-stock">Out of Stock</div>}
-                          <button className="wishlist-remove">×</button>
-                        </div>
-                        <div className="wishlist-details">
-                          <h3>{item.name}</h3>
-                          <div className="wishlist-price">${item.price}</div>
-                          <div className="wishlist-size">Size: {item.size}</div>
-                          <div className="wishlist-actions">
-                            {item.inStock ? (
-                              <button className="add-to-cart-btn">Add to Cart</button>
-                            ) : (
-                              <button className="notify-btn">Notify When Available</button>
-                            )}
+                    {loadingWishlist ? (
+                      <div className="loading-spinner">Loading wishlist...</div>
+                    ) : wishlist.length === 0 ? (
+                      <div className="empty-state">
+                        <p>Your wishlist is empty. Start browsing and save items you love!</p>
+                      </div>
+                    ) : (
+                      wishlist.map(item => (
+                        <div key={item.id} className="wishlist-item">
+                          <div className="wishlist-image">
+                            <img src={item.product?.images?.[0] || '/api/placeholder/300/300'} alt={item.product?.name || 'Product'} />
+                            {item.product && item.product.inventory_quantity === 0 && <div className="out-of-stock">Out of Stock</div>}
+                            <button
+                              className="wishlist-remove"
+                              onClick={() => handleRemoveFromWishlist(item.id)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                          <div className="wishlist-details">
+                            <h3>{item.product?.name || 'Product'}</h3>
+                            <div className="wishlist-price">${item.product?.price || 'N/A'}</div>
+                            <div className="wishlist-size">Size: {item.size || 'N/A'}</div>
+                            <div className="wishlist-actions">
+                              {item.product && item.product.inventory_quantity > 0 ? (
+                                <button className="add-to-cart-btn">Add to Cart</button>
+                              ) : (
+                                <button className="notify-btn">Notify When Available</button>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="wishlist-recommendations">
-                    <h3>You Might Also Like</h3>
-                    <div className="recommendations-grid">
-                      <div className="recommendation-item">
-                        <img src="/api/placeholder/200/200" alt="Product" />
-                        <h4>Wireless Earbuds</h4>
-                        <p>$129.99</p>
-                      </div>
-                      <div className="recommendation-item">
-                        <img src="/api/placeholder/200/200" alt="Product" />
-                        <h4>Phone Case</h4>
-                        <p>$24.99</p>
-                      </div>
-                      <div className="recommendation-item">
-                        <img src="/api/placeholder/200/200" alt="Product" />
-                        <h4>Charging Cable</h4>
-                        <p>$19.99</p>
-                      </div>
-                    </div>
+                      ))
+                    )}
                   </div>
                 </div>
               )}
@@ -832,7 +1124,11 @@ const Profile = () => {
                           <p>Get notified about your order status</p>
                         </div>
                         <label className="switch">
-                          <input type="checkbox" defaultChecked />
+                          <input
+                            type="checkbox"
+                            checked={notificationPreferences.order_updates || false}
+                            onChange={(e) => handleNotificationPreferenceChange('order_updates', e.target.checked)}
+                          />
                           <span className="slider"></span>
                         </label>
                       </div>
@@ -842,7 +1138,11 @@ const Profile = () => {
                           <p>Receive special offers and discounts</p>
                         </div>
                         <label className="switch">
-                          <input type="checkbox" defaultChecked />
+                          <input
+                            type="checkbox"
+                            checked={notificationPreferences.promotional_emails || false}
+                            onChange={(e) => handleNotificationPreferenceChange('promotional_emails', e.target.checked)}
+                          />
                           <span className="slider"></span>
                         </label>
                       </div>
@@ -856,17 +1156,11 @@ const Profile = () => {
                           <p>Get push notifications for order updates</p>
                         </div>
                         <label className="switch">
-                          <input type="checkbox" defaultChecked />
-                          <span className="slider"></span>
-                        </label>
-                      </div>
-                      <div className="notification-item">
-                        <div>
-                          <h4>Price Drops</h4>
-                          <p>Notify me when items in my wishlist go on sale</p>
-                        </div>
-                        <label className="switch">
-                          <input type="checkbox" />
+                          <input
+                            type="checkbox"
+                            checked={notificationPreferences.push_notifications || false}
+                            onChange={(e) => handleNotificationPreferenceChange('push_notifications', e.target.checked)}
+                          />
                           <span className="slider"></span>
                         </label>
                       </div>
@@ -888,57 +1182,54 @@ const Profile = () => {
                         <h3>Password</h3>
                         <p>Last changed 2 months ago</p>
                       </div>
-                      <button className="change-password-btn">Change Password</button>
+                      <button 
+                        className="change-password-btn"
+                        onClick={() => setShowChangePassword(true)}
+                      >
+                        Change Password
+                      </button>
                     </div>
                     <div className="security-item">
                       <div>
                         <h3>Two-Factor Authentication</h3>
                         <p>Add an extra layer of security to your account</p>
                       </div>
-                      <button className="change-password-btn">Enable 2FA</button>
-                    </div>
-                    <div className="security-item">
-                      <div>
-                        <h3>Login Activity</h3>
-                        <p>Review your recent account activity</p>
-                      </div>
-                      <button className="view-activity-btn">View Activity</button>
-                    </div>
-                    <div className="security-item">
-                      <div>
-                        <h3>Connected Devices</h3>
-                        <p>Manage devices that have access to your account</p>
-                      </div>
-                      <button className="manage-devices-btn">Manage Devices</button>
-                    </div>
-                  </div>
-
-                  <div className="privacy-settings">
-                    <h3>Privacy Settings</h3>
-                    <div className="privacy-item">
-                      <div>
-                        <h4>Data Export</h4>
-                        <p>Download a copy of your personal data</p>
-                      </div>
-                      <button className="download-data-btn">Download Data</button>
-                    </div>
-                    <div className="privacy-item">
-                      <div>
-                        <h4>Account Deactivation</h4>
-                        <p>Temporarily disable your account</p>
-                      </div>
-                      <button className="deactivate-btn">Deactivate Account</button>
-                    </div>
-                    <div className="privacy-item">
-                      <div>
-                        <h4>Account Deletion</h4>
-                        <p>Permanently delete your account and all data</p>
-                      </div>
-                      <button className="delete-account-btn">Delete Account</button>
+                      <button 
+                        className="change-password-btn"
+                        onClick={() => setShowTwoFactorAuth(true)}
+                      >
+                        Enable 2FA
+                      </button>
                     </div>
                   </div>
                 </div>
               )}
+              
+              <AddressForm
+                isOpen={showAddressForm}
+                onClose={() => setShowAddressForm(false)}
+                onSave={handleSaveAddress}
+                editAddress={editingAddress}
+                userId={user?.id}
+              />
+
+              <PaymentForm
+                isOpen={showPaymentForm}
+                onClose={() => setShowPaymentForm(false)}
+                onSave={handleSavePayment}
+                editPayment={editingPayment}
+              />
+
+              <ChangePassword
+                isOpen={showChangePassword}
+                onClose={() => setShowChangePassword(false)}
+              />
+
+              <TwoFactorAuth
+                isOpen={showTwoFactorAuth}
+                onClose={() => setShowTwoFactorAuth(false)}
+              />
+
             </motion.div>
           </AnimatePresence>
         </div>

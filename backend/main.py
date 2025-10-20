@@ -18,7 +18,11 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 
-from routers import auth, products, orders, admin, websocket, ai
+# Import Alembic for migrations
+from alembic.config import Config
+from alembic import command
+
+from routers import auth, products, orders, admin, websocket, ai, addresses, payments, wishlist, notifications, security
 from middleware.logging import RequestLoggingMiddleware
 from middleware.security import SecurityMiddleware
 from services.user_service import UserService
@@ -38,6 +42,12 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up IWX E-commerce Backend...")
 
     try:
+        # Run database migrations
+        logger.info("Running database migrations...")
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+        logger.info("Database migrations completed")
+
         # Connect to databases
         await MongoDB.connect_to_mongo()
         await create_tables()
@@ -84,22 +94,18 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(auth.router, prefix="/api")
-app.include_router(products.router, prefix="/api")
-app.include_router(orders.router, prefix="/api")
-app.include_router(admin.router, prefix="/api")
-app.include_router(websocket.router, prefix="/api")
-app.include_router(ai.router, prefix="/api")
+app.include_router(auth.router)
+app.include_router(products.router)
+app.include_router(orders.router)
+app.include_router(admin.router)
+app.include_router(websocket.router)
+app.include_router(ai.router)
+app.include_router(addresses.router)
+app.include_router(payments.router)
+app.include_router(wishlist.router)
+app.include_router(notifications.router)
+app.include_router(security.router)
 
-# Log all API endpoints on startup
-logger.info("Registered API Endpoints:")
-for route in app.routes:
-    if hasattr(route, 'methods') and hasattr(route, 'path'):
-        methods = ', '.join(route.methods)
-        path = route.path
-        endpoint_func = getattr(route, 'endpoint', None)
-        doc = (getattr(endpoint_func, '__doc__', None) or 'No description').strip() if endpoint_func else 'No description'
-        logger.info(f"  {methods} {path} - {doc}")
 
 
 # Health check endpoint
