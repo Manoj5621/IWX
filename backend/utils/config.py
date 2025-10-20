@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     mysql_host: str = "localhost"
     mysql_port: int = 3306
     mysql_user: str = "root"
-    mysql_password: str = "root"
+    mysql_password: str = "password"
     mysql_database: str = "iwx"
 
     # JWT Configuration
