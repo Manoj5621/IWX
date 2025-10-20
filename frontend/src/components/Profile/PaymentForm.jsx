@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import '../../pages/Profile.css';
 
-const PaymentForm = ({ isOpen, onClose, onSave, editPayment = null }) => {
+const PaymentForm = ({ isOpen, onClose, onSave, editPayment = null, userId }) => {
   const [formData, setFormData] = useState({
     card_number: editPayment?.card_number || '',
     expiry_month: editPayment?.expiry_month || '',
@@ -59,7 +59,7 @@ const PaymentForm = ({ isOpen, onClose, onSave, editPayment = null }) => {
       try {
         // Transform form data to match backend model
         const paymentData = {
-          user_id: "current_user_id", // This should come from auth context
+          user_id: userId,
           type: "credit_card", // Default to credit card
           is_default: formData.is_default,
           nickname: "",

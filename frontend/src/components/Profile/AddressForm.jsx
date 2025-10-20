@@ -18,6 +18,7 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null, userId }) =>
   });
 
   const [errors, setErrors] = useState({});
+  const [loadingLocation, setLoadingLocation] = useState(false);
 
   // Update form data when editAddress changes
   useEffect(() => {
@@ -52,13 +53,13 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null, userId }) =>
     setErrors({});
   }, [editAddress, isOpen]);
 
-  const handleInputChange = (e) => {
+  const handleInputChange = async (e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
-    
+
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -66,6 +67,96 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null, userId }) =>
         [name]: ''
       }));
     }
+
+    // Auto-fill address based on postal code for India
+    if (name === 'postal_code' && value.length === 6 && /^[0-9]+$/.test(value)) {
+      try {
+        const response = await fetch(`https://api.postalpincode.in/pincode/${value}`);
+        const data = await response.json();
+
+        if (data && data[0] && data[0].Status === 'Success' && data[0].PostOffice && data[0].PostOffice.length > 0) {
+          const postOffice = data[0].PostOffice[0];
+          setFormData(prev => ({
+            ...prev,
+            city: postOffice.District || postOffice.Division || '',
+            state: postOffice.State || '',
+            country: 'India'
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching postal code data:', error);
+      }
+    }
+  };
+
+  const handleDetectLocation = async () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by this browser.');
+      return;
+    }
+
+    setLoadingLocation(true);
+
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000
+        });
+      });
+
+      const { latitude, longitude } = position.coords;
+
+      // Use a geocoding service to get address from coordinates
+      const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
+      const data = await response.json();
+
+      if (data) {
+        // Try to get postal code from localityInfo if postcode is empty
+        let postalCode = data.postcode || data.postalCode || '';
+        if (!postalCode && data.localityInfo?.administrative) {
+          // Look for postal code in administrative data
+          const adminData = data.localityInfo.administrative;
+          for (let i = 0; i < adminData.length; i++) {
+            if (adminData[i].postalCode) {
+              postalCode = adminData[i].postalCode;
+              break;
+            }
+          }
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          street: data.localityInfo?.administrative?.[2]?.name || data.locality || data.city || '',
+          city: data.city || '',
+          state: data.principalSubdivision || '',
+          postal_code: postalCode,
+          country: data.countryName || ''
+        }));
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+      alert('Unable to detect location. Please check your browser permissions.');
+    } finally {
+      setLoadingLocation(false);
+    }
+  };
+
+  const handleClearForm = () => {
+    setFormData({
+      name: '',
+      firstName: '',
+      lastName: '',
+      street: '',
+      city: '',
+      state: '',
+      postal_code: '',
+      country: '',
+      is_default: false,
+      phone: ''
+    });
+    setErrors({});
   };
 
   const validateForm = () => {
@@ -141,7 +232,7 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null, userId }) =>
 
             <form onSubmit={handleSubmit} className="address-form">
               <div className="form-row">
-                <div className="form-group">
+                <div className="form-group full-width">
                   <label>Address Name *</label>
                   <input
                     type="text"
@@ -153,6 +244,19 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null, userId }) =>
                     autoComplete="off"
                   />
                   {errors.name && <span className="error-message">{errors.name}</span>}
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <button
+                    type="button"
+                    onClick={handleDetectLocation}
+                    disabled={loadingLocation}
+                    className="detect-location-btn"
+                  >
+                    {loadingLocation ? 'Detecting...' : 'Detect Location'}
+                  </button>
                 </div>
               </div>
 
@@ -293,6 +397,9 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null, userId }) =>
               <div className="form-actions">
                 <button type="button" className="cancel-btn" onClick={onClose}>
                   Cancel
+                </button>
+                <button type="button" className="clear-all-btn" onClick={handleClearForm}>
+                  Clear All
                 </button>
                 <button type="submit" className="save-btn">
                   {editAddress ? 'Update Address' : 'Add Address'}

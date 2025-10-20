@@ -344,14 +344,8 @@ const Profile = () => {
     try {
       await addressAPI.deleteAddress(addressId);
       await loadAddresses();
-      setSuccess('Address deleted successfully!');
-      setAlertType('success');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error deleting address:', err);
-      setError('Failed to delete address. Please try again.');
-      setAlertType('error');
-      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -361,9 +355,6 @@ const Profile = () => {
       await loadPaymentMethods();
     } catch (err) {
       console.error('Error setting default payment:', err);
-      setError('Failed to update default payment method. Please try again.');
-      setAlertType('error');
-      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -373,14 +364,8 @@ const Profile = () => {
     try {
       await paymentAPI.deletePaymentMethod(paymentId);
       await loadPaymentMethods();
-      setSuccess('Payment method deleted successfully!');
-      setAlertType('success');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error deleting payment method:', err);
-      setError('Failed to delete payment method. Please try again.');
-      setAlertType('error');
-      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -388,14 +373,8 @@ const Profile = () => {
     try {
       await wishlistAPI.removeFromWishlist(itemId);
       await loadWishlist();
-      setSuccess('Item removed from wishlist!');
-      setAlertType('success');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error removing from wishlist:', err);
-      setError('Failed to remove item from wishlist. Please try again.');
-      setAlertType('error');
-      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -1184,6 +1163,7 @@ const Profile = () => {
                 onClose={() => setShowPaymentForm(false)}
                 onSave={handleSavePayment}
                 editPayment={editingPayment}
+                userId={user?.id}
               />
 
               <ChangePassword

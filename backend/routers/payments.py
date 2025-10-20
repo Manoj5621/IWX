@@ -22,14 +22,14 @@ async def create_payment_method(
     current_user: UserInDB = Depends(get_current_active_user)
 ):
     """Create a new payment method"""
-    try:
-        # Ensure payment belongs to current user
-        if payment_data.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Cannot create payment method for another user"
-            )
+    # Ensure payment belongs to current user
+    if payment_data.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot create payment method for another user"
+        )
 
+    try:
         payment_service = get_payment_service()
         payment = await payment_service.create_payment_method(payment_data)
         return payment
