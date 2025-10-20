@@ -42,8 +42,8 @@ export const authAPI = {
     return response.data;
   },
 
-  googleCallback: async (code) => {
-    const response = await axiosClient.get(`/auth/google/callback?code=${code}`);
+  getGoogleAuthData: async (sessionId) => {
+    const response = await axiosClient.get(`/auth/google/session/${sessionId}`);
     return response.data;
   }
 };

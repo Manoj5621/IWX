@@ -8,6 +8,16 @@ export const adminAPI = {
     return response.data;
   },
 
+  createUser: async (userData) => {
+    const response = await axiosClient.post('/admin/users', userData);
+    return response.data;
+  },
+
+  getDashboardStats: async () => {
+    const response = await axiosClient.get('/admin/dashboard/stats');
+    return response.data;
+  },
+
   updateUser: async (userId, userData) => {
     const response = await axiosClient.put(`/admin/users/${userId}`, userData);
     return response.data;

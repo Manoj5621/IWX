@@ -143,20 +143,29 @@ const Auth = () => {
     }
   };
 
-  // Handle Google OAuth callback
+  // Handle Google OAuth callback via URL parameters
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
+    const sessionId = urlParams.get('session_id');
+    const error = urlParams.get('error');
 
-    if (code && window.location.pathname === '/auth/google/callback') {
-      handleGoogleCallback(code);
+    if (error === 'google_auth_failed') {
+      setErrors({ general: 'Google authentication failed. Please try again.' });
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, '/auth');
+      return;
+    }
+
+    if (sessionId && window.location.pathname === '/auth/google/callback') {
+      // Fetch auth data from backend using session ID
+      fetchAuthData(sessionId);
     }
   }, []);
 
-  const handleGoogleCallback = async (code) => {
+  const fetchAuthData = async (sessionId) => {
     try {
       setIsLoading(true);
-      const response = await authAPI.googleCallback(code);
+      const response = await authAPI.getGoogleAuthData(sessionId);
 
       // Store user role in localStorage
       const userRole = response.user?.role || 'user';
@@ -172,7 +181,7 @@ const Auth = () => {
       window.history.replaceState({}, document.title, '/');
       navigate('/');
     } catch (error) {
-      setErrors({ general: error.response?.data?.detail || error.message || 'Google authentication failed' });
+      setErrors({ general: error.response?.data?.detail || error.message || 'Failed to complete authentication' });
       navigate('/auth');
     } finally {
       setIsLoading(false);

@@ -13,6 +13,15 @@ const AdminDashboard = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const sidebarRef = useRef(null);
+  const [editingUser, setEditingUser] = useState(null);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [userFormData, setUserFormData] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    role: 'customer',
+    status: 'active'
+  });
   const [stats, setStats] = useState({
     totalSales: 0,
     totalOrders: 0,
@@ -93,12 +102,8 @@ const [settings, setSettings] = useState({
   darkMode: false
 });
 
-const [users, setUsers] = useState([
-  { name: 'Admin Johnson', role: 'admin', email: 'admin@iwx.com', lastActive: '2 hours ago' },
-  { name: 'Sarah Miller', role: 'editor', email: 'sarah@iwx.com', lastActive: '30 minutes ago' },
-  { name: 'Mike Chen', role: 'editor', email: 'mike@iwx.com', lastActive: '1 day ago' },
-  { name: 'Emma Wilson', role: 'viewer', email: 'emma@iwx.com', lastActive: '3 hours ago' }
-]);
+const [users, setUsers] = useState([]);
+const [loadingUsers, setLoadingUsers] = useState(true);
 
 const [financeData, setFinanceData] = useState({
   revenue: 125430,
@@ -117,6 +122,7 @@ const [systemStatus, setSystemStatus] = useState([
   // Load dashboard data and set up real-time updates
   useEffect(() => {
     loadDashboardData();
+    loadUsersData();
 
     // Connect to WebSocket for real-time updates
     const wsConnection = websocketService.connect('dashboard',
@@ -124,6 +130,9 @@ const [systemStatus, setSystemStatus] = useState([
         // Handle real-time updates
         if (data.type === 'stats_update') {
           setStats(prev => ({ ...prev, ...data.data }));
+        } else if (data.type === 'user_update') {
+          // Handle user updates (create, update, delete)
+          handleUserUpdate(data.data);
         }
       },
       (error) => console.error('WebSocket error:', error),
@@ -137,7 +146,7 @@ const [systemStatus, setSystemStatus] = useState([
 
   const loadDashboardData = async () => {
     try {
-      const dashboardStats = await adminAPI.getUsers(); // Placeholder - replace with actual dashboard stats API
+      const dashboardStats = await adminAPI.getDashboardStats();
       setStats({
         totalSales: dashboardStats.orders.total_revenue,
         totalOrders: dashboardStats.orders.total_orders,
@@ -152,6 +161,130 @@ const [systemStatus, setSystemStatus] = useState([
       // Keep existing mock data as fallback
     } finally {
       setLoading(false);
+    }
+  };
+
+  const capitalizeName = (name) => {
+    if (!name) return '';
+    return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+  };
+
+  const loadUsersData = async () => {
+    try {
+      const usersData = await adminAPI.getUsers();
+      setUsers(usersData.map(user => ({
+        id: user.id,
+        name: `${capitalizeName(user.first_name || '')} ${capitalizeName(user.last_name || '')}`.trim() || user.email,
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+        role: user.role,
+        email: user.email,
+        lastActive: user.last_login ? new Date(user.last_login).toLocaleString() : 'Never',
+        status: user.status,
+        created_at: user.created_at
+      })));
+    } catch (error) {
+      console.error('Failed to load users data:', error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const handleUserUpdate = (data) => {
+    if (data.action === 'create') {
+      const newUser = {
+        id: data.user.id,
+        first_name: data.user.first_name || '',
+        last_name: data.user.last_name || '',
+        role: data.user.role,
+        email: data.user.email,
+        lastActive: data.user.last_login ? new Date(data.user.last_login).toLocaleString() : 'Never',
+        status: data.user.status,
+        created_at: data.user.created_at,
+        name: `${capitalizeName(data.user.first_name || '')} ${capitalizeName(data.user.last_name || '')}`.trim() || data.user.email
+      };
+      setUsers(prev => [newUser, ...prev]);
+    } else if (data.action === 'update') {
+      setUsers(prev => prev.map(user =>
+        user.id === data.user.id ? {
+          ...user,
+          first_name: data.user.first_name || user.first_name,
+          last_name: data.user.last_name || user.last_name,
+          role: data.user.role || user.role,
+          email: data.user.email || user.email,
+          lastActive: data.user.last_login ? new Date(data.user.last_login).toLocaleString() : user.lastActive,
+          status: data.user.status || user.status,
+          name: `${capitalizeName(data.user.first_name || user.first_name)} ${capitalizeName(data.user.last_name || user.last_name)}`.trim() || (data.user.email || user.email)
+        } : user
+      ));
+    } else if (data.action === 'delete') {
+      setUsers(prev => prev.filter(user => user.id !== data.user_id));
+    }
+  };
+
+  const handleEditUser = (user) => {
+    setEditingUser(user);
+    setUserFormData({
+      first_name: user.first_name || '',
+      last_name: user.last_name || '',
+      email: user.email || '',
+      role: user.role || 'customer',
+      status: user.status || 'active'
+    });
+    setShowUserModal(true);
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (window.confirm('Are you sure you want to delete this user?')) {
+      try {
+        await adminAPI.deleteUser(userId);
+        setUsers(prev => prev.filter(user => user.id !== userId));
+      } catch (error) {
+        console.error('Failed to delete user:', error);
+        alert('Failed to delete user');
+      }
+    }
+  };
+
+  const handleSaveUser = async (userData) => {
+    try {
+      // Trim email to remove any spaces
+      const cleanedUserData = {
+        ...userData,
+        email: userData.email.trim()
+      };
+
+      console.log('Saving user with data:', cleanedUserData); // Debug log
+      if (editingUser) {
+        await adminAPI.updateUser(editingUser.id, cleanedUserData);
+        setUsers(prev => prev.map(user =>
+          user.id === editingUser.id ? {
+            ...user,
+            ...cleanedUserData,
+            name: `${capitalizeName(cleanedUserData.first_name || user.first_name)} ${capitalizeName(cleanedUserData.last_name || user.last_name)}`.trim() || cleanedUserData.email
+          } : user
+        ));
+      } else {
+        const newUser = await adminAPI.createUser(cleanedUserData);
+        console.log('Created user response:', newUser); // Debug log
+        const formattedUser = {
+          ...newUser,
+          name: `${capitalizeName(newUser.first_name || '')} ${capitalizeName(newUser.last_name || '')}`.trim() || newUser.email
+        };
+        setUsers(prev => [formattedUser, ...prev]);
+      }
+      setShowUserModal(false);
+      setEditingUser(null);
+      setUserFormData({
+        first_name: '',
+        last_name: '',
+        email: '',
+        role: 'customer',
+        status: 'active'
+      });
+    } catch (error) {
+      console.error('Failed to save user:', error);
+      alert('Failed to save user');
     }
   };
 
@@ -1456,7 +1589,7 @@ const [systemStatus, setSystemStatus] = useState([
 
         {/* Users Section */}
         {activeSection === 'users' && (
-        <motion.section 
+        <motion.section
             className="users-section"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1465,29 +1598,130 @@ const [systemStatus, setSystemStatus] = useState([
         >
             <div className="section-header">
             <h2>User Management</h2>
-            <button className="primary-btn">+ Invite User</button>
+            <button className="primary-btn" onClick={() => {
+              setEditingUser(null);
+              setUserFormData({
+                first_name: '',
+                last_name: '',
+                email: '',
+                role: 'customer',
+                status: 'active'
+              });
+              setShowUserModal(true);
+            }}>+ Add User</button>
             </div>
 
             <div className="users-grid">
-            {users.map((user, index) => (
-                <div key={index} className="user-card">
-                <div className="user-avatar">
-                    {user.name.split(' ').map(n => n[0]).join('')}
-                </div>
-                <h4>{user.name}</h4>
-                <p style={{color: '#666', margin: '5px 0'}}>{user.email}</p>
-                <div className={`user-role role-${user.role}`}>
-                    {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                </div>
-                <p style={{fontSize: '12px', color: '#999', marginTop: '10px'}}>
-                    Last active: {user.lastActive}
-                </p>
-                <button className="primary-btn" style={{width: '100%', marginTop: '15px', padding: '8px'}}>
-                    Manage Access
-                </button>
-                </div>
-            ))}
+            {loadingUsers ? (
+                <div style={{textAlign: 'center', padding: '40px'}}>Loading users...</div>
+            ) : users.length === 0 ? (
+                <div style={{textAlign: 'center', padding: '40px'}}>No users found</div>
+            ) : (
+                users.map((user, index) => (
+                    <div key={user.id || index} className="user-card">
+                    <div className="user-avatar">
+                        {user.name && user.name.split(' ').map(n => n[0]).join('') || user.email.charAt(0).toUpperCase()}
+                    </div>
+                    <h4>{user.name}</h4>
+                    <p style={{color: '#666', margin: '5px 0'}}>{user.email}</p>
+                    <div className={`user-role role-${user.role}`}>
+                        {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                    </div>
+                    <div className={`user-status status-${user.status}`}>
+                        {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+                    </div>
+                    <p style={{fontSize: '12px', color: '#999', marginTop: '10px'}}>
+                        Last active: {user.lastActive}
+                    </p>
+                    <div style={{display: 'flex', gap: '5px', marginTop: '15px'}}>
+                        <button
+                            className="primary-btn"
+                            style={{flex: 1, padding: '8px', fontSize: '12px'}}
+                            onClick={() => handleEditUser(user)}
+                        >
+                            Edit
+                        </button>
+                        <button
+                            className="secondary-btn"
+                            style={{flex: 1, padding: '8px', fontSize: '12px'}}
+                            onClick={() => handleDeleteUser(user.id)}
+                        >
+                            Delete
+                        </button>
+                    </div>
+                    </div>
+                ))
+            )}
             </div>
+
+            {/* User Modal */}
+            {showUserModal && (
+                <div className="modal-overlay" onClick={() => setShowUserModal(false)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <h3>{editingUser ? 'Edit User' : 'Add User'}</h3>
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            handleSaveUser(userFormData);
+                        }}>
+                            <div style={{marginBottom: '15px'}}>
+                                <label>First Name:</label>
+                                <input
+                                    type="text"
+                                    value={userFormData.first_name}
+                                    onChange={(e) => setUserFormData(prev => ({ ...prev, first_name: capitalizeName(e.target.value) }))}
+                                    required
+                                />
+                            </div>
+                            <div style={{marginBottom: '15px'}}>
+                                <label>Last Name:</label>
+                                <input
+                                    type="text"
+                                    value={userFormData.last_name}
+                                    onChange={(e) => setUserFormData(prev => ({ ...prev, last_name: capitalizeName(e.target.value) }))}
+                                    required
+                                />
+                            </div>
+                            <div style={{marginBottom: '15px'}}>
+                                <label>Email:</label>
+                                <input
+                                    type="email"
+                                    value={userFormData.email}
+                                    onChange={(e) => setUserFormData(prev => ({ ...prev, email: e.target.value.trim() }))}
+                                    required
+                                />
+                            </div>
+                            <div style={{marginBottom: '15px'}}>
+                                <label>Role:</label>
+                                <select
+                                    value={userFormData.role}
+                                    onChange={(e) => setUserFormData(prev => ({ ...prev, role: e.target.value }))}
+                                    required
+                                >
+                                    <option value="customer">Customer</option>
+                                    <option value="editor">Editor</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+                            <div style={{marginBottom: '15px'}}>
+                                <label>Status:</label>
+                                <select
+                                    value={userFormData.status}
+                                    onChange={(e) => setUserFormData(prev => ({ ...prev, status: e.target.value }))}
+                                    required
+                                >
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="suspended">Suspended</option>
+                                </select>
+                            </div>
+                            <div style={{display: 'flex', gap: '10px'}}>
+                                <button type="submit" className="primary-btn">Save</button>
+                                <button type="button" className="secondary-btn" onClick={() => setShowUserModal(false)}>Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </motion.section>
         )}
 
