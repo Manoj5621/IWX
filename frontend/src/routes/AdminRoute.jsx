@@ -1,11 +1,11 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 
 const AdminRoute = ({ children }) => {
-  const token = localStorage.getItem('token');
-  const userRole = localStorage.getItem('userRole'); // Assuming role is stored
+  const { isAuthenticated, userRole } = useSelector(state => state.auth);
 
-  if (!token) {
+  if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
   }
 

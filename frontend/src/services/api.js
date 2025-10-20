@@ -38,6 +38,7 @@ class ApiService {
 
       if (response.status === 401) {
         this.setToken(null);
+        localStorage.removeItem('userRole');
         window.location.href = '/auth';
         throw new Error('Authentication required');
       }
@@ -77,35 +78,14 @@ class ApiService {
 
   async getCurrentUser() {
     try {
-      return await this.request('/auth/me');
+      const userData = await this.request('/auth/me');
+      if (userData && userData.role) {
+        localStorage.setItem('userRole', userData.role);
+      }
+      return userData;
     } catch (error) {
       console.error('Failed to get current user:', error);
-      // Return mock data for development
-      return {
-        id: '1',
-        email: 'user@example.com',
-        first_name: 'John',
-        last_name: 'Doe',
-        phone: '+1 (555) 123-4567',
-        birth_date: '1990-01-01',
-        gender: 'male',
-        address: {
-          street: '123 Main St',
-          city: 'New York',
-          state: 'NY',
-          zipCode: '10001',
-          country: 'USA'
-        },
-        preferences: {
-          emailNewsletter: true,
-          smsNotifications: false,
-          promotions: true,
-          orderUpdates: true,
-          stockAlerts: true
-        },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
+      return null;
     }
   }
 
@@ -127,7 +107,6 @@ class ApiService {
     return response;
   }
 
-  // Other methods remain the same...
   async getProducts(filters = {}) {
     const queryParams = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
@@ -160,6 +139,10 @@ class ApiService {
 
   async getOrders() {
     return await this.request('/orders/');
+  }
+
+  async getDashboardStats() {
+    return await this.request('/admin/dashboard/stats');
   }
 }
 

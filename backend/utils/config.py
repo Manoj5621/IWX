@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     debug: str = "true"
     cors_origins: List[str] = ["http://localhost:3000", "http://localhost:5173"]
 
+    # Google OAuth Configuration
+    google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    google_client_secret: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    google_redirect_uri: str = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/google/callback")
+
     # Admin Configuration
     admin_email: str = "admin@iwx.com"
     admin_password: str = "admin123"
