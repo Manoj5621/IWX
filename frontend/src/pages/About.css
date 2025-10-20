@@ -156,7 +156,7 @@ button.tab-active {
 .stat {
   text-align: center;
   padding: 30px 20px;
-  background: rgb(241, 0, 0);
+  background: rgb(0, 0, 0);
   border-radius: 5px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
 }
@@ -165,7 +165,7 @@ button.tab-active {
   font-size: 36px;
   font-weight: 300;
   margin-bottom: 10px;
-  color: #000;
+  color: #fffcfc;
 }
 
 .stat p {

@@ -55,6 +55,7 @@ function App() {
       <Routes>
         <Route path='/' element={<Home />} />
         <Route path='/adminDashboard' element={<AdminRoute><Dashboard /></AdminRoute>} />
+        {/* <Route path='/adminDashboard' element={<Dashboard />} /> */}
         <Route path='/productList' element={<ProductListing />} />
         <Route path='/profile' element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path='/auth' element={<PublicRoute><Auth /></PublicRoute>} />
