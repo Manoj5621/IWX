@@ -164,10 +164,12 @@ async def google_callback(code: str):
         # Create access token
         access_token = create_access_token(data={"sub": user.id, "role": user.role.value})
 
-        return Token(
-            access_token=access_token,
-            user=UserResponse(**user.dict())
-        )
+        # Return JSON response instead of redirect
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "user": UserResponse(**user.dict()).dict()
+        }
 
     except Exception as e:
         logger.error(f"Google OAuth error: {e}")

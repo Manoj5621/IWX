@@ -213,3 +213,221 @@ class CartItem(Base):
     __table_args__ = (
         Index('idx_cart_item_product', 'product_id'),
     )
+
+class Address(Base):
+    __tablename__ = "addresses"
+
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    type = Column(String(20), nullable=False)
+    first_name = Column(String(50), nullable=False)
+    last_name = Column(String(50), nullable=False)
+    company = Column(String(100))
+    street_address = Column(String(200), nullable=False)
+    apartment = Column(String(50))
+    city = Column(String(100), nullable=False)
+    state = Column(String(100), nullable=False)
+    postal_code = Column(String(20), nullable=False)
+    country = Column(String(100), nullable=False)
+    phone = Column(String(20))
+    is_default = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    user = relationship("User")
+
+    # Indexes
+    __table_args__ = (
+        Index('idx_address_user_id', 'user_id'),
+        Index('idx_address_is_default', 'is_default'),
+    )
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, index=True)
+    type = Column(String(20), nullable=False)
+    status = Column(String(20), default="active", nullable=False)
+    is_default = Column(Boolean, default=False)
+    nickname = Column(String(100))
+    credit_card = Column(JSON)
+    paypal = Column(JSON)
+    bank_transfer = Column(JSON)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    last_used = Column(DateTime(timezone=True))
+
+    # Relationships
+    user = relationship("User")
+
+    # Indexes
+    __table_args__ = (
+        Index('idx_payment_user_id', 'user_id'),
+        Index('idx_payment_is_default', 'is_default'),
+        Index('idx_payment_status', 'status'),
+    )
+
+class WishlistItem(Base):
+    __tablename__ = "wishlist_items"
+
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, index=True)
+    product_id = Column(String(36), ForeignKey('products.id'), nullable=False, index=True)
+    size = Column(String(50))
+    color = Column(String(50))
+    quantity = Column(Integer, default=1, nullable=False)
+    notes = Column(String(500))
+    added_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    user = relationship("User")
+    product = relationship("Product")
+
+    # Indexes
+    __table_args__ = (
+        Index('idx_wishlist_user_product', 'user_id', 'product_id', unique=True),
+        Index('idx_wishlist_added_at', 'added_at'),
+    )
+
+class Notification(Base):
+    __tablename__ = "notifications"
+
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, index=True)
+    type = Column(String(50), nullable=False)
+    title = Column(String(200), nullable=False)
+    message = Column(Text, nullable=False)
+    channels = Column(JSON, default=list)
+    status = Column(String(20), default="pending", nullable=False)
+    data = Column(JSON)
+    priority = Column(Integer, default=1)
+    sent_at = Column(DateTime(timezone=True))
+    read_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    user = relationship("User")
+
+    # Indexes
+    __table_args__ = (
+        Index('idx_notification_user_id', 'user_id'),
+        Index('idx_notification_status', 'status'),
+        Index('idx_notification_type', 'type'),
+        Index('idx_notification_created_at', 'created_at'),
+    )
+
+class NotificationPreferences(Base):
+    __tablename__ = "notification_preferences"
+
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, unique=True, index=True)
+    email_notifications = Column(Boolean, default=True)
+    sms_notifications = Column(Boolean, default=False)
+    push_notifications = Column(Boolean, default=True)
+    order_updates = Column(Boolean, default=True)
+    payment_updates = Column(Boolean, default=True)
+    shipping_updates = Column(Boolean, default=True)
+    promotional_emails = Column(Boolean, default=True)
+    product_alerts = Column(Boolean, default=True)
+    security_alerts = Column(Boolean, default=True)
+    system_notifications = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    user = relationship("User")
+
+class SecuritySettings(Base):
+    __tablename__ = "security_settings"
+
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, unique=True, index=True)
+    two_factor_enabled = Column(Boolean, default=False)
+    two_factor_secret = Column(String(100))
+    backup_codes = Column(JSON)
+    login_alerts = Column(Boolean, default=True)
+    suspicious_activity_alerts = Column(Boolean, default=True)
+    password_last_changed = Column(DateTime(timezone=True))
+    account_locked = Column(Boolean, default=False)
+    account_locked_until = Column(DateTime(timezone=True))
+    failed_login_attempts = Column(Integer, default=0)
+    last_failed_login = Column(DateTime(timezone=True))
+    trusted_devices = Column(JSON, default=list)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    user = relationship("User")
+
+class LoginHistory(Base):
+    __tablename__ = "login_history"
+
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, index=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    ip_address = Column(String(45), nullable=False)
+    user_agent = Column(Text)
+    device_type = Column(String(20), default="unknown")
+    location = Column(String(100))
+    status = Column(String(20), nullable=False)
+    failure_reason = Column(String(200))
+
+    # Relationships
+    user = relationship("User")
+
+    # Indexes
+    __table_args__ = (
+        Index('idx_login_history_user_timestamp', 'user_id', 'timestamp'),
+        Index('idx_login_history_ip_address', 'ip_address'),
+    )
+
+class DeviceInfo(Base):
+    __tablename__ = "device_info"
+
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, index=True)
+    device_id = Column(String(100), nullable=False)
+    device_name = Column(String(100), nullable=False)
+    device_type = Column(String(20), default="unknown")
+    browser = Column(String(50))
+    os = Column(String(50))
+    ip_address = Column(String(45), nullable=False)
+    last_used = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    is_trusted = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Relationships
+    user = relationship("User")
+
+    # Indexes
+    __table_args__ = (
+        Index('idx_device_user_device', 'user_id', 'device_id', unique=True),
+        Index('idx_device_last_used', 'last_used'),
+    )
+
+class SecurityEvent(Base):
+    __tablename__ = "security_events"
+
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, index=True)
+    event_type = Column(String(50), nullable=False)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    ip_address = Column(String(45), nullable=False)
+    user_agent = Column(Text)
+    location = Column(String(100))
+    details = Column(JSON)
+    severity = Column(Integer, default=1)
+
+    # Relationships
+    user = relationship("User")
+
+    # Indexes
+    __table_args__ = (
+        Index('idx_security_event_user_timestamp', 'user_id', 'timestamp'),
+        Index('idx_security_event_type', 'event_type'),
+    )

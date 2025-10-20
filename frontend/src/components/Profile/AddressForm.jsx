@@ -1,23 +1,56 @@
 // AddressForm.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import '../../pages/Profile.css';
 
-const AddressForm = ({ isOpen, onClose, onSave, editAddress = null }) => {
+const AddressForm = ({ isOpen, onClose, onSave, editAddress = null, userId }) => {
   const [formData, setFormData] = useState({
-    name: editAddress?.name || '',
-    firstName: editAddress?.first_name || '',
-    lastName: editAddress?.last_name || '',
-    street: editAddress?.street_address || '',
-    city: editAddress?.city || '',
-    state: editAddress?.state || '',
-    postal_code: editAddress?.postal_code || '',
-    country: editAddress?.country || '',
-    is_default: editAddress?.is_default || false,
-    phone: editAddress?.phone || ''
+    name: '',
+    firstName: '',
+    lastName: '',
+    street: '',
+    city: '',
+    state: '',
+    postal_code: '',
+    country: '',
+    is_default: false,
+    phone: ''
   });
 
   const [errors, setErrors] = useState({});
+
+  // Update form data when editAddress changes
+  useEffect(() => {
+    if (editAddress) {
+      setFormData({
+        name: editAddress.name || '',
+        firstName: editAddress.first_name || '',
+        lastName: editAddress.last_name || '',
+        street: editAddress.street_address || '',
+        city: editAddress.city || '',
+        state: editAddress.state || '',
+        postal_code: editAddress.postal_code || '',
+        country: editAddress.country || '',
+        is_default: editAddress.is_default || false,
+        phone: editAddress.phone || ''
+      });
+    } else {
+      // Reset form for new address
+      setFormData({
+        name: '',
+        firstName: '',
+        lastName: '',
+        street: '',
+        city: '',
+        state: '',
+        postal_code: '',
+        country: '',
+        is_default: false,
+        phone: ''
+      });
+    }
+    setErrors({});
+  }, [editAddress, isOpen]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -25,6 +58,14 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null }) => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
   };
 
   const validateForm = () => {
@@ -48,11 +89,11 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null }) => {
       try {
         // Transform form data to match backend model
         const addressData = {
-          user_id: "current_user_id", // This should come from auth context
+          user_id: userId,
           name: formData.name,
-          type: "home", // Default type, could be made configurable
-          first_name: formData.firstName || "",
-          last_name: formData.lastName || "",
+          type: "home",
+          first_name: formData.firstName,
+          last_name: formData.lastName,
           company: "",
           street_address: formData.street,
           apartment: "",
@@ -68,7 +109,7 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null }) => {
         onClose();
       } catch (error) {
         console.error('Error saving address:', error);
-        // Handle error (could show error message)
+        throw error;
       }
     }
   };

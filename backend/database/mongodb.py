@@ -16,12 +16,12 @@ class MongoDB:
     async def connect_to_mongo(cls):
         """Connect to MongoDB"""
         try:
-            cls.client = AsyncIOMotorClient(settings.MONGODB_URL)
+            cls.client = AsyncIOMotorClient(settings.mongodb_url)
             # Test the connection
             await cls.client.admin.command('ping')
             # Extract database name from URL or use default
             from urllib.parse import urlparse
-            parsed = urlparse(settings.MONGODB_URL)
+            parsed = urlparse(settings.mongodb_url)
             db_name = parsed.path.lstrip('/') or 'iwx_ecommerce'
             cls.database = cls.client[db_name]
             logger.info("Connected to MongoDB")

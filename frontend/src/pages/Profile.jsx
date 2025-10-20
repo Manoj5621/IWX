@@ -12,6 +12,8 @@ import { securityAPI } from '../api/securityAPI';
 import './Profile.css';
 import AddressForm from '../components/Profile/AddressForm';
 import PaymentForm from '../components/Profile/PaymentForm';
+import AlertBox from '../components/AlertBox';
+import ErrorPage from './ErrorPage';
 import { ChangePassword, TwoFactorAuth, LoginActivity, ConnectedDevices } from '../components/Profile/SecurityComponents';
 
 const Profile = () => {
@@ -23,6 +25,8 @@ const Profile = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [alertType, setAlertType] = useState('success');
+  const [majorError, setMajorError] = useState(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -85,6 +89,12 @@ const Profile = () => {
   const [editingAddress, setEditingAddress] = useState(null);
   const [editingPayment, setEditingPayment] = useState(null);
 
+  // Clear errors when changing tabs
+  useEffect(() => {
+    setError('');
+    setSuccess('');
+  }, [activeTab]);
+
   useEffect(() => {
     if (user) {
       setUserData(user);
@@ -107,17 +117,32 @@ const Profile = () => {
         setPreferences(user.preferences);
       }
 
-      // Load real data for all sections
-      loadOrders();
-      loadAddresses();
-      loadPaymentMethods();
-      loadWishlist();
-      loadNotifications();
-      loadSecurityData();
+      // Load real data for all sections with error handling
+      loadInitialData();
     }
   }, [user]);
 
-  // Data loading functions
+  const loadInitialData = async () => {
+    try {
+      await Promise.allSettled([
+        loadOrders(),
+        loadAddresses(),
+        loadPaymentMethods(),
+        loadWishlist(),
+        loadNotifications(),
+        loadSecurityData()
+      ]);
+    } catch (error) {
+      console.error('Error loading initial data:', error);
+      setMajorError({
+        type: 'network',
+        message: 'Failed to load profile data',
+        details: error.message
+      });
+    }
+  };
+
+  // Data loading functions with better error handling
   const loadOrders = async () => {
     try {
       setLoadingOrders(true);
@@ -125,6 +150,7 @@ const Profile = () => {
       setOrders(response.orders || []);
     } catch (err) {
       console.error('Error loading orders:', err);
+      throw err;
     } finally {
       setLoadingOrders(false);
     }
@@ -137,6 +163,7 @@ const Profile = () => {
       setAddresses(response.addresses || []);
     } catch (err) {
       console.error('Error loading addresses:', err);
+      throw err;
     } finally {
       setLoadingAddresses(false);
     }
@@ -150,6 +177,7 @@ const Profile = () => {
       setBillingHistory(response.billing_history || []);
     } catch (err) {
       console.error('Error loading payment methods:', err);
+      throw err;
     } finally {
       setLoadingPayments(false);
     }
@@ -162,6 +190,7 @@ const Profile = () => {
       setWishlist(response.items || []);
     } catch (err) {
       console.error('Error loading wishlist:', err);
+      throw err;
     } finally {
       setLoadingWishlist(false);
     }
@@ -180,6 +209,7 @@ const Profile = () => {
       }
     } catch (err) {
       console.error('Error loading notifications:', err);
+      throw err;
     } finally {
       setLoadingNotifications(false);
     }
@@ -198,10 +228,7 @@ const Profile = () => {
       setConnectedDevices(devicesResponse || []);
     } catch (err) {
       console.error('Error loading security data:', err);
-      // Set empty defaults on error
-      setSecuritySettings({});
-      setLoginHistory([]);
-      setConnectedDevices([]);
+      throw err;
     } finally {
       setLoadingSecurity(false);
     }
@@ -237,11 +264,14 @@ const Profile = () => {
     try {
       const updatedUser = await authAPI.updateCurrentUser({ preferences: newPreferences });
       dispatch(updateUser(updatedUser));
+      setSuccess('Preferences updated successfully!');
+      setAlertType('success');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error updating preferences:', err);
-      // Revert on error
       setPreferences(preferences);
       setError('Failed to update preferences. Please try again.');
+      setAlertType('error');
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -268,12 +298,13 @@ const Profile = () => {
         dispatch(updateUser(updatedUser));
         setUserData(updatedUser);
         setSuccess('Profile updated successfully!');
-
+        setAlertType('success');
         setTimeout(() => setSuccess(''), 3000);
       }
     } catch (err) {
       console.error('Error updating profile:', err);
       setError('Failed to update profile. Please try again.');
+      setAlertType('error');
     } finally {
       setLoading(false);
       setIsEditing(false);
@@ -308,16 +339,18 @@ const Profile = () => {
     setError('');
   };
 
-  // CRUD operation handlers
+  // CRUD operation handlers with better error handling
   const handleSetDefaultAddress = async (addressId) => {
     try {
       await addressAPI.setDefaultAddress(addressId);
-      loadAddresses(); // Reload addresses
+      await loadAddresses();
       setSuccess('Default address updated successfully!');
+      setAlertType('success');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error setting default address:', err);
       setError('Failed to update default address. Please try again.');
+      setAlertType('error');
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -327,12 +360,14 @@ const Profile = () => {
 
     try {
       await addressAPI.deleteAddress(addressId);
-      loadAddresses(); // Reload addresses
+      await loadAddresses();
       setSuccess('Address deleted successfully!');
+      setAlertType('success');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error deleting address:', err);
       setError('Failed to delete address. Please try again.');
+      setAlertType('error');
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -340,12 +375,14 @@ const Profile = () => {
   const handleSetDefaultPayment = async (paymentId) => {
     try {
       await paymentAPI.setDefaultPaymentMethod(paymentId);
-      loadPaymentMethods(); // Reload payment methods
+      await loadPaymentMethods();
       setSuccess('Default payment method updated successfully!');
+      setAlertType('success');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error setting default payment:', err);
       setError('Failed to update default payment method. Please try again.');
+      setAlertType('error');
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -355,12 +392,14 @@ const Profile = () => {
 
     try {
       await paymentAPI.deletePaymentMethod(paymentId);
-      loadPaymentMethods(); // Reload payment methods
+      await loadPaymentMethods();
       setSuccess('Payment method deleted successfully!');
+      setAlertType('success');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error deleting payment method:', err);
       setError('Failed to delete payment method. Please try again.');
+      setAlertType('error');
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -368,12 +407,14 @@ const Profile = () => {
   const handleRemoveFromWishlist = async (itemId) => {
     try {
       await wishlistAPI.removeFromWishlist(itemId);
-      loadWishlist(); // Reload wishlist
+      await loadWishlist();
       setSuccess('Item removed from wishlist!');
+      setAlertType('success');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error removing from wishlist:', err);
       setError('Failed to remove item from wishlist. Please try again.');
+      setAlertType('error');
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -388,12 +429,13 @@ const Profile = () => {
 
       await notificationAPI.updateNotificationPreferences(updatedPreferences);
       setSuccess('Notification preferences updated successfully!');
+      setAlertType('success');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error updating notification preferences:', err);
-      // Revert on error
       setNotificationPreferences(notificationPreferences);
       setError('Failed to update notification preferences. Please try again.');
+      setAlertType('error');
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -412,6 +454,17 @@ const Profile = () => {
     if (!userData) return 'U';
     return `${userData.first_name?.[0] || ''}${userData.last_name?.[0] || ''}`.toUpperCase() || 'U';
   };
+
+  // Show error page for major errors
+  if (majorError) {
+    return (
+      <ErrorPage 
+        type={majorError.type} 
+        message={majorError.message}
+        details={majorError.details}
+      />
+    );
+  }
 
   if (!userData) {
     return (
@@ -433,22 +486,24 @@ const Profile = () => {
 
   const handleSaveAddress = async (addressData) => {
     try {
+      setError('');
+      setSuccess('');
       if (editingAddress) {
-        // Update existing address
         await addressAPI.updateAddress(editingAddress.id, addressData);
         setSuccess('Address updated successfully!');
+        setAlertType('success');
       } else {
-        // Add new address
         await addressAPI.createAddress(addressData);
         setSuccess('Address added successfully!');
+        setAlertType('success');
       }
-      // Reload addresses
-      loadAddresses();
+      await loadAddresses();
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Error saving address:', error);
-      setError('Failed to save address. Please try again.');
-      setTimeout(() => setError(''), 3000);
+      setError(error.response?.data?.detail || 'Failed to save address. Please try again.');
+      setAlertType('error');
+      setTimeout(() => setError(''), 5000);
     }
   };
 
@@ -464,21 +519,23 @@ const Profile = () => {
 
   const handleSavePayment = async (paymentData) => {
     try {
+      setError('');
+      setSuccess('');
       if (editingPayment) {
-        // Update existing payment
         await paymentAPI.updatePaymentMethod(editingPayment.id, paymentData);
         setSuccess('Payment method updated successfully!');
+        setAlertType('success');
       } else {
-        // Add new payment
         await paymentAPI.createPaymentMethod(paymentData);
         setSuccess('Payment method added successfully!');
+        setAlertType('success');
       }
-      // Reload payment methods
-      loadPaymentMethods();
+      await loadPaymentMethods();
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Error saving payment method:', error);
       setError('Failed to save payment method. Please try again.');
+      setAlertType('error');
       setTimeout(() => setError(''), 3000);
     }
   };
@@ -492,16 +549,26 @@ const Profile = () => {
       </div>
 
       {/* Success/Error Messages */}
-      {error && (
-        <div className="error-message" style={{color: 'red', marginBottom: '20px', padding: '10px', background: '#ffe6e6', borderRadius: '4px'}}>
-          {error}
-        </div>
-      )}
-      {success && (
-        <div className="success-message" style={{color: 'green', marginBottom: '20px', padding: '10px', background: '#e6ffe6', borderRadius: '4px'}}>
-          {success}
-        </div>
-      )}
+      <AnimatePresence>
+        {error && (
+          <AlertBox
+            type="error"
+            message={error}
+            onClose={() => setError('')}
+            autoHide={true}
+            duration={5000}
+          />
+        )}
+        {success && (
+          <AlertBox
+            type={alertType}
+            message={success}
+            onClose={() => setSuccess('')}
+            autoHide={true}
+            duration={3000}
+          />
+        )}
+      </AnimatePresence>
 
       <div className="profile-content">
         {/* Sidebar */}
@@ -813,7 +880,7 @@ const Profile = () => {
                 </div>
               )}
 
-              {/* Other tabs remain the same... */}
+              {/* Orders Tab */}
               {activeTab === 'orders' && (
                 <div className="tab-content">
                   <div className="tab-header">
@@ -865,24 +932,6 @@ const Profile = () => {
                         </div>
                       ))
                     )}
-                  </div>
-                  <div className="returns-section">
-                    <h3>Returns & Refunds</h3>
-                    <p>Manage your returns and refund requests</p>
-                    <div className="returns-info">
-                      <div className="returns-card">
-                        <h4>Easy Returns</h4>
-                        <p>30-day return policy for all items</p>
-                      </div>
-                      <div className="returns-card">
-                        <h4>Free Shipping</h4>
-                        <p>Free return shipping on all orders</p>
-                      </div>
-                      <div className="returns-card">
-                        <h4>Quick Refunds</h4>
-                        <p>Refunds processed within 3-5 business days</p>
-                      </div>
-                    </div>
                   </div>
                 </div>
               )}
@@ -947,27 +996,6 @@ const Profile = () => {
                       ))
                     )}
                   </div>
-
-                  {/* Shipping info section */}
-
-                  <div className="shipping-info">
-                    <h3>Shipping Options</h3>
-                    <p>Available shipping methods for your location</p>
-                    <div className="shipping-options">
-                      <div className="shipping-option">
-                        <h4>Standard Shipping</h4>
-                        <p>5-7 business days • Free</p>
-                      </div>
-                      <div className="shipping-option">
-                        <h4>Express Shipping</h4>
-                        <p>2-3 business days • $9.99</p>
-                      </div>
-                      <div className="shipping-option">
-                        <h4>Next Day Delivery</h4>
-                        <p>1 business day • $19.99</p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
 
@@ -1031,32 +1059,6 @@ const Profile = () => {
                       ))
                     )}
                   </div>
-
-                  {/* Billing history section */}
-
-                  <div className="billing-history">
-                    <h3>Billing History</h3>
-                    <div className="billing-table">
-                      <div className="billing-header">
-                        <div>Date</div>
-                        <div>Description</div>
-                        <div>Amount</div>
-                        <div>Status</div>
-                      </div>
-                      <div className="billing-row">
-                        <div>Jan 15, 2024</div>
-                        <div>Order #ORD-001</div>
-                        <div>$149.99</div>
-                        <div className="paid">Paid</div>
-                      </div>
-                      <div className="billing-row">
-                        <div>Jan 10, 2024</div>
-                        <div>Order #ORD-002</div>
-                        <div>$79.99</div>
-                        <div className="pending">Pending</div>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
 
@@ -1103,27 +1105,6 @@ const Profile = () => {
                       ))
                     )}
                   </div>
-
-                  <div className="wishlist-recommendations">
-                    <h3>You Might Also Like</h3>
-                    <div className="recommendations-grid">
-                      <div className="recommendation-item">
-                        <img src="/api/placeholder/200/200" alt="Product" />
-                        <h4>Wireless Earbuds</h4>
-                        <p>$129.99</p>
-                      </div>
-                      <div className="recommendation-item">
-                        <img src="/api/placeholder/200/200" alt="Product" />
-                        <h4>Phone Case</h4>
-                        <p>$24.99</p>
-                      </div>
-                      <div className="recommendation-item">
-                        <img src="/api/placeholder/200/200" alt="Product" />
-                        <h4>Charging Cable</h4>
-                        <p>$19.99</p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
 
@@ -1165,34 +1146,6 @@ const Profile = () => {
                           <span className="slider"></span>
                         </label>
                       </div>
-                      <div className="notification-item">
-                        <div>
-                          <h4>Payment Updates</h4>
-                          <p>Get notified about payment status</p>
-                        </div>
-                        <label className="switch">
-                          <input
-                            type="checkbox"
-                            checked={notificationPreferences.payment_updates || false}
-                            onChange={(e) => handleNotificationPreferenceChange('payment_updates', e.target.checked)}
-                          />
-                          <span className="slider"></span>
-                        </label>
-                      </div>
-                      <div className="notification-item">
-                        <div>
-                          <h4>Shipping Updates</h4>
-                          <p>Get notified about shipping status</p>
-                        </div>
-                        <label className="switch">
-                          <input
-                            type="checkbox"
-                            checked={notificationPreferences.shipping_updates || false}
-                            onChange={(e) => handleNotificationPreferenceChange('shipping_updates', e.target.checked)}
-                          />
-                          <span className="slider"></span>
-                        </label>
-                      </div>
                     </div>
 
                     <div className="notification-category">
@@ -1207,52 +1160,6 @@ const Profile = () => {
                             type="checkbox"
                             checked={notificationPreferences.push_notifications || false}
                             onChange={(e) => handleNotificationPreferenceChange('push_notifications', e.target.checked)}
-                          />
-                          <span className="slider"></span>
-                        </label>
-                      </div>
-                      <div className="notification-item">
-                        <div>
-                          <h4>Product Alerts</h4>
-                          <p>Notify me about product updates and restocks</p>
-                        </div>
-                        <label className="switch">
-                          <input
-                            type="checkbox"
-                            checked={notificationPreferences.product_alerts || false}
-                            onChange={(e) => handleNotificationPreferenceChange('product_alerts', e.target.checked)}
-                          />
-                          <span className="slider"></span>
-                        </label>
-                      </div>
-                      <div className="notification-item">
-                        <div>
-                          <h4>Security Alerts</h4>
-                          <p>Get notified about account security events</p>
-                        </div>
-                        <label className="switch">
-                          <input
-                            type="checkbox"
-                            checked={notificationPreferences.security_alerts || false}
-                            onChange={(e) => handleNotificationPreferenceChange('security_alerts', e.target.checked)}
-                          />
-                          <span className="slider"></span>
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="notification-category">
-                      <h3>SMS Notifications</h3>
-                      <div className="notification-item">
-                        <div>
-                          <h4>SMS Updates</h4>
-                          <p>Receive important updates via SMS</p>
-                        </div>
-                        <label className="switch">
-                          <input
-                            type="checkbox"
-                            checked={notificationPreferences.sms_notifications || false}
-                            onChange={(e) => handleNotificationPreferenceChange('sms_notifications', e.target.checked)}
                           />
                           <span className="slider"></span>
                         </label>
@@ -1294,55 +1201,6 @@ const Profile = () => {
                         Enable 2FA
                       </button>
                     </div>
-                    <div className="security-item">
-                      <div>
-                        <h3>Login Activity</h3>
-                        <p>Review your recent account activity</p>
-                      </div>
-                      <button 
-                        className="view-activity-btn"
-                        onClick={() => setShowLoginActivity(true)}
-                      >
-                        View Activity
-                      </button>
-                    </div>
-                    <div className="security-item">
-                      <div>
-                        <h3>Connected Devices</h3>
-                        <p>Manage devices that have access to your account</p>
-                      </div>
-                      <button 
-                        className="manage-devices-btn"
-                        onClick={() => setShowConnectedDevices(true)}
-                      >
-                        Manage Devices
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="privacy-settings">
-                    <h3>Privacy Settings</h3>
-                    <div className="privacy-item">
-                      <div>
-                        <h4>Data Export</h4>
-                        <p>Download a copy of your personal data</p>
-                      </div>
-                      <button className="download-data-btn">Download Data</button>
-                    </div>
-                    <div className="privacy-item">
-                      <div>
-                        <h4>Account Deactivation</h4>
-                        <p>Temporarily disable your account</p>
-                      </div>
-                      <button className="deactivate-btn">Deactivate Account</button>
-                    </div>
-                    <div className="privacy-item">
-                      <div>
-                        <h4>Account Deletion</h4>
-                        <p>Permanently delete your account and all data</p>
-                      </div>
-                      <button className="delete-account-btn">Delete Account</button>
-                    </div>
                   </div>
                 </div>
               )}
@@ -1352,6 +1210,7 @@ const Profile = () => {
                 onClose={() => setShowAddressForm(false)}
                 onSave={handleSaveAddress}
                 editAddress={editingAddress}
+                userId={user?.id}
               />
 
               <PaymentForm
@@ -1369,16 +1228,6 @@ const Profile = () => {
               <TwoFactorAuth
                 isOpen={showTwoFactorAuth}
                 onClose={() => setShowTwoFactorAuth(false)}
-              />
-
-              <LoginActivity
-                isOpen={showLoginActivity}
-                onClose={() => setShowLoginActivity(false)}
-              />
-
-              <ConnectedDevices
-                isOpen={showConnectedDevices}
-                onClose={() => setShowConnectedDevices(false)}
               />
 
             </motion.div>
