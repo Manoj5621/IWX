@@ -260,6 +260,16 @@
   overflow-y: auto;
 }
 
+.mobile-action-btn {
+  position: relative;
+}
+
+.mobile-action-btn .cart-count {
+  position: absolute;
+  top: -5px;
+  right: 0;
+}
+
 .close-menu-btn {
   position: absolute;
   top: 20px;
