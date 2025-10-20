@@ -29,7 +29,6 @@ __pycache__
 
 venv
 
-alembic/
-alembic.ini
-
-config.py
+backend/alembic/
+backend/alembic.ini
+backend/utils/config.py
