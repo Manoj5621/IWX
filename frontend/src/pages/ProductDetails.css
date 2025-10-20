@@ -260,6 +260,7 @@
   padding: 10px 15px;
   border: 1px solid #ddd;
   background: #fff;
+  color: #000;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.3s ease;
@@ -378,6 +379,7 @@
 .share-btn {
   background: none;
   border: 1px solid #ddd;
+  color: #000000;
   padding: 10px 15px;
   cursor: pointer;
   font-size: 14px;

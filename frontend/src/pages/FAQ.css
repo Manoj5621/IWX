@@ -87,6 +87,7 @@
 
 .category-tabs button {
   background: white;
+  color: rgb(0, 0, 0);
   border: 1px solid #ddd;
   padding: 12px 25px;
   font-size: 14px;
@@ -230,7 +231,7 @@
 }
 
 .support-link {
-  color: #000;
+  color: #fcfcfc;
   text-decoration: none;
   font-weight: 500;
   transition: color 0.3s ease;

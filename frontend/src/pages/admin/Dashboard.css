@@ -767,9 +767,14 @@ body {
   font-weight: var(--font-weight-medium);
 }
 
-.activity-info span, .product-info span {
+.activity-info span {
   font-size: 13px;
-  color: var(--medium-gray);
+  color: white;
+}
+
+.product-info span {
+  font-size: 13px;
+  color: rgb(3, 3, 3);
 }
 
 .activity-details {
