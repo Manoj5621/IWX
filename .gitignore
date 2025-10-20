@@ -27,6 +27,6 @@ __pycache__
 
 .env
 
-alembic
-alembic.ini
-utils/config.py
+backend/alembic
+backend/alembic.ini
+backend/utils/config.py
