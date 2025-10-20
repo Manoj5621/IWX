@@ -35,7 +35,7 @@ function App() {
       const googleCode = urlParams.get('code');
 
       // Handle Google OAuth callback
-      if (googleCode && window.location.pathname === '/auth') {
+      if (googleCode && (window.location.pathname === '/auth' || window.location.pathname === '/auth/google/callback')) {
         try {
           const response = await authAPI.googleCallback(googleCode);
           const userRole = response.user?.role || 'user';
@@ -89,6 +89,7 @@ function App() {
         <Route path='/productList' element={<ProductListing />} />
         <Route path='/profile' element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         <Route path='/auth' element={<PublicRoute><Auth /></PublicRoute>} />
+        <Route path='/auth/google/callback' element={<Auth />} />
         <Route path='/about' element={<About />} />
         <Route path='/contact' element={<Contact />} />
         <Route path='/faq' element={<FAQ />} />

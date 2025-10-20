@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     # Google OAuth Configuration
     google_client_id: str = "1068779575227-03k4ej3orh45e3q2u9rhnb7ea4afilrg.apps.googleusercontent.com"
     google_client_secret: str = "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"
-    google_redirect_uri: str = "http://localhost:8000/auth/google/callback"
+    google_redirect_uri: str = "http://localhost:5174/auth/google/callback"
 
     # Admin Configuration
     admin_email: str = "admin@iwx.com"
