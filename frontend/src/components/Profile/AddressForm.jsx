@@ -114,7 +114,7 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null, userId }) =>
     }
   };
 
-  const countries = ['United States', 'Canada', 'United Kingdom', 'Australia', 'Germany', 'France'];
+  const countries = ['India', 'United States', 'Canada', 'United Kingdom', 'Australia', 'Germany', 'France'];
 
   return (
     <AnimatePresence>

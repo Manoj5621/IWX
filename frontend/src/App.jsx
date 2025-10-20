@@ -14,6 +14,7 @@ import ProductDetails from './pages/ProductDetails'
 import ReturnRefund from './pages/ReturnRefund'
 import Offers from './pages/Offers'
 import ModelViewer from './pages/ModelViewer'
+import Status from './pages/Status'
 import Dashboard from './pages/admin/Dashboard'
 import ErrorPage from './pages/ErrorPage'
 import ProtectedRoute from './routes/ProtectedRoute'
@@ -22,11 +23,15 @@ import AdminRoute from './routes/AdminRoute'
 import { useSelector, useDispatch } from 'react-redux'
 import { loginSuccess, loginFailure, setLoading } from './redux/slices/authSlice'
 import { authAPI } from './api/authAPI'
+import { useServerStatus } from './hooks/useServerStatus'
+import BackendServerDown from './components/BackendServerDown'
+import FrontendServerDown from './components/FrontendServerDown'
 
-function App() {
+function AppContent() {
   const dispatch = useDispatch();
   const isAuthenticated = useSelector(state => state.auth.isAuthenticated)
   const loading = useSelector(state => state.auth.loading)
+  const { backendStatus, frontendStatus, retryChecks } = useServerStatus()
 
   useEffect(() => {
     const initAuth = async () => {
@@ -81,32 +86,48 @@ function App() {
     return <div>Loading...</div>
   }
 
+  // Show backend down page if backend is offline
+  if (backendStatus === 'offline') {
+    return <BackendServerDown onRetry={retryChecks} />
+  }
+
+  // Show frontend down page if frontend is offline (network issues)
+  if (frontendStatus === 'offline') {
+    return <FrontendServerDown onRetry={retryChecks} />
+  }
+
+  return (
+    <Routes>
+      <Route path='/' element={<Home />} />
+      <Route path='/adminDashboard' element={<AdminRoute><Dashboard /></AdminRoute>} />
+      <Route path='/productList' element={<ProductListing />} />
+      <Route path='/profile' element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path='/auth' element={<PublicRoute><Auth /></PublicRoute>} />
+      <Route path='/auth/google/callback' element={<Auth />} />
+      <Route path='/about' element={<About />} />
+      <Route path='/contact' element={<Contact />} />
+      <Route path='/faq' element={<FAQ />} />
+      <Route path='/cart' element={<Cart />} />
+      <Route path='/checkout' element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+      <Route path='/productDetails' element={<ProductDetails />} />
+      <Route path='/returnRefund' element={<ReturnRefund />} />
+      <Route path='/offers' element={<Offers />} />
+      <Route path='/modelViewer' element={<ModelViewer />} />
+      <Route path='/status' element={<Status />} />
+      <Route path='/error/404' element={<ErrorPage type="404" />} />
+      <Route path='/error/500' element={<ErrorPage type="500" />} />
+      <Route path='/error/network' element={<ErrorPage type="network" />} />
+      <Route path='/error/timeout' element={<ErrorPage type="timeout" />} />
+      <Route path='/error' element={<ErrorPage />} />
+      <Route path='*' element={<ErrorPage type="404" />} />
+    </Routes>
+  )
+}
+
+function App() {
   return (
     <Router>
-      <Routes>
-        <Route path='/' element={<Home />} />
-        <Route path='/adminDashboard' element={<AdminRoute><Dashboard /></AdminRoute>} />
-        {/* <Route path='/adminDashboard' element={<Dashboard />} /> */}
-        <Route path='/productList' element={<ProductListing />} />
-        <Route path='/profile' element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path='/auth' element={<PublicRoute><Auth /></PublicRoute>} />
-        <Route path='/auth/google/callback' element={<Auth />} />
-        <Route path='/about' element={<About />} />
-        <Route path='/contact' element={<Contact />} />
-        <Route path='/faq' element={<FAQ />} />
-        <Route path='/cart' element={<Cart />} />
-        <Route path='/checkout' element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-        <Route path='/productDetails' element={<ProductDetails />} />
-        <Route path='/returnRefund' element={<ReturnRefund />} />
-        <Route path='/offers' element={<Offers />} />
-        <Route path='/modelViewer' element={<ModelViewer />} />
-        <Route path='/error/404' element={<ErrorPage type="404" />} />
-        <Route path='/error/500' element={<ErrorPage type="500" />} />
-        <Route path='/error/network' element={<ErrorPage type="network" />} />
-        <Route path='/error/timeout' element={<ErrorPage type="timeout" />} />
-        <Route path='/error' element={<ErrorPage />} />
-        <Route path='*' element={<ErrorPage type="404" />} />
-      </Routes>
+      <AppContent />
     </Router>
   )
 }
