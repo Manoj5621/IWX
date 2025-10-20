@@ -1069,7 +1069,7 @@ body {
   background: var(--white);
   border-radius: var(--border-radius-md);
   box-shadow: var(--shadow-sm);
-  border-left: 4px solid var(--accent-warning);
+  border-left: 4px solid var(--primary-black);
   transition: var(--transition-fast);
 }
 

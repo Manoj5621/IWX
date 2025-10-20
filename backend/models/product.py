@@ -28,6 +28,7 @@ class ProductBase(BaseModel):
 
 class ProductCreate(ProductBase):
     images: List[str] = Field(default_factory=list)
+    videos: List[str] = Field(default_factory=list)
     sizes: List[str] = Field(default_factory=list)
     colors: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
@@ -48,6 +49,7 @@ class ProductUpdate(BaseModel):
     sku: Optional[str] = Field(None, min_length=1, max_length=50)
     status: Optional[ProductStatus] = None
     images: Optional[List[str]] = None
+    videos: Optional[List[str]] = None
     sizes: Optional[List[str]] = None
     colors: Optional[List[str]] = None
     tags: Optional[List[str]] = None
@@ -61,6 +63,7 @@ class ProductUpdate(BaseModel):
 class ProductInDB(ProductBase):
     id: str
     images: List[str]
+    videos: List[str]
     sizes: List[str]
     colors: List[str]
     tags: List[str]
@@ -91,6 +94,7 @@ class ProductResponse(BaseModel):
     sku: str
     status: ProductStatus
     images: List[str]
+    videos: List[str]
     sizes: List[str]
     colors: List[str]
     tags: List[str]

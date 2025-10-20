@@ -20,8 +20,24 @@ async def create_product(
 ):
     """Create a new product (Editor/Admin only)"""
     try:
+        # Validate images count (1-6)
+        if len(product_data.images) < 1 or len(product_data.images) > 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Product must have between 1 and 6 images"
+            )
+
+        # Validate videos count (0-2)
+        if len(product_data.videos) > 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Product can have at most 2 videos"
+            )
+
         product = await ProductService.create_product(product_data, current_user.id)
         return ProductResponse(**product.dict())
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Create product error: {e}")
         raise HTTPException(
@@ -57,6 +73,20 @@ async def update_product(
 ):
     """Update product (Editor/Admin only)"""
     try:
+        # Validate images count if provided (1-6)
+        if product_data.images is not None and (len(product_data.images) < 1 or len(product_data.images) > 6):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Product must have between 1 and 6 images"
+            )
+
+        # Validate videos count if provided (0-2)
+        if product_data.videos is not None and len(product_data.videos) > 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Product can have at most 2 videos"
+            )
+
         product = await ProductService.update_product(product_id, product_data)
         if not product:
             raise HTTPException(

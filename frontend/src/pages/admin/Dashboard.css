@@ -1062,6 +1062,7 @@ body {
 }
 
 .notification-item {
+  margin-bottom: 15px;
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
@@ -1069,7 +1070,8 @@ body {
   background: var(--white);
   border-radius: var(--border-radius-md);
   box-shadow: var(--shadow-sm);
-  border-left: 4px solid var(--accent-warning);
+  border-left: 4px solid var(--primary-black);
+  border-right: 4px solid var(--primary-black);
   transition: var(--transition-fast);
 }
 

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { adminAPI } from '../../api/adminAPI';
 import Navbar from '../../components/Navbar/Navbar';
+import AddProductForm from '../../components/AddProductForm';
 import websocketService from '../../services/websocket';
 import './Dashboard.css';
 
@@ -113,6 +114,8 @@ const [systemStatus, setSystemStatus] = useState([
   { service: 'Payment Gateway', status: 'warning', uptime: '98.7%' },
   { service: 'Email Service', status: 'online', uptime: '99.5%' }
 ]);
+
+const [showAddProductForm, setShowAddProductForm] = useState(false);
 
   // Load dashboard data and set up real-time updates
   useEffect(() => {
@@ -386,6 +389,12 @@ const [systemStatus, setSystemStatus] = useState([
             🛍️ Products
           </button>
           <button
+            className={`nav-item ${activeSection === 'add-product' ? 'active' : ''}`}
+            onClick={() => setShowAddProductForm(true)}
+          >
+            ➕ Add Product
+          </button>
+          <button
             className={`nav-item ${activeSection === 'orders' ? 'active' : ''}`}
             onClick={() => setActiveSection('orders')}
           >
@@ -496,6 +505,15 @@ const [systemStatus, setSystemStatus] = useState([
             }}
           >
             🛍️ Products
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'add-product' ? 'active' : ''}`}
+            onClick={() => {
+              setShowAddProductForm(true);
+              setSidebarOpen(false);
+            }}
+          >
+            ➕ Add Product
           </button>
           <button
             className={`nav-item ${activeSection === 'orders' ? 'active' : ''}`}
@@ -1097,7 +1115,7 @@ const [systemStatus, setSystemStatus] = useState([
 
           {/* Products Section */}
           {activeSection === 'products' && (
-            <motion.section 
+            <motion.section
               className="products-section"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1106,7 +1124,7 @@ const [systemStatus, setSystemStatus] = useState([
             >
               <div className="section-header">
                 <h2>Product Management</h2>
-                <button className="primary-btn">+ Add New Product</button>
+                <button className="primary-btn" onClick={() => setShowAddProductForm(true)}>+ Add New Product</button>
               </div>
               <p>Product management content goes here...</p>
             </motion.section>
@@ -1904,6 +1922,17 @@ const [systemStatus, setSystemStatus] = useState([
         )}
         </AnimatePresence>
       </main>
+
+      {/* Add Product Modal */}
+      {showAddProductForm && (
+        <AddProductForm
+          onClose={() => setShowAddProductForm(false)}
+          onSuccess={() => {
+            setShowAddProductForm(false);
+            // Optionally refresh product list or show success message
+          }}
+        />
+      )}
     </div>
   );
 };
