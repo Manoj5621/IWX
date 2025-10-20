@@ -1,15 +1,16 @@
 import os
 from pydantic_settings import BaseSettings
 from typing import List
+from dotenv import load_dotenv
 
 class Settings(BaseSettings):
     # Database Configuration
-    MONGODB_URL: str = os.getenv("MONGODB_URL", "mongodb://localhost:27017/iwx_ecommerce")
-    mysql_host: str = os.getenv("MYSQL_HOST", "localhost")
-    mysql_port: int = int(os.getenv("MYSQL_PORT", "3306"))
-    mysql_user: str = os.getenv("MYSQL_USER", "root")
-    mysql_password: str = os.getenv("MYSQL_PASSWORD", "root")
-    mysql_database: str = os.getenv("MYSQL_DATABASE", "iwx")
+    mongodb_url: str = "mongodb://localhost:27017/iwx_ecommerce"
+    mysql_host: str = "localhost"
+    mysql_port: int = 3306
+    mysql_user: str = "root"
+    mysql_password: str = "root"
+    mysql_database: str = "iwx"
 
     # JWT Configuration
     secret_key: str = "your-secret-key-here-change-in-production"
@@ -33,9 +34,9 @@ class Settings(BaseSettings):
     cors_origins: List[str] = ["http://localhost:3000", "http://localhost:5173"]
 
     # Google OAuth Configuration
-    google_client_id: str = os.getenv("GOOGLE_CLIENT_ID", "")
-    google_client_secret: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
-    google_redirect_uri: str = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/google/callback")
+    google_client_id: str = "1068779575227-03k4ej3orh45e3q2u9rhnb7ea4afilrg.apps.googleusercontent.com"
+    google_client_secret: str = "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"
+    google_redirect_uri: str = "http://localhost:8000/auth/google/callback"
 
     # Admin Configuration
     admin_email: str = "admin@iwx.com"
@@ -46,5 +47,8 @@ class Settings(BaseSettings):
         case_sensitive = False
         env_ignore_empty = True
         extra = "ignore"
+
+# Load environment variables from .env file
+load_dotenv()
 
 settings = Settings()

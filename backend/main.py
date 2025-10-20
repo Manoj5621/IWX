@@ -106,15 +106,6 @@ app.include_router(wishlist.router)
 app.include_router(notifications.router)
 app.include_router(security.router)
 
-# Log all API endpoints on startup
-logger.info("Registered API Endpoints:")
-for route in app.routes:
-    if hasattr(route, 'methods') and hasattr(route, 'path'):
-        methods = ', '.join(route.methods)
-        path = route.path
-        endpoint_func = getattr(route, 'endpoint', None)
-        doc = (getattr(endpoint_func, '__doc__', None) or 'No description').strip() if endpoint_func else 'No description'
-        logger.info(f"  {methods} {path} - {doc}")
 
 
 # Health check endpoint
