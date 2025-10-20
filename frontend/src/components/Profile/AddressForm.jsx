@@ -6,6 +6,8 @@ import '../../pages/Profile.css';
 const AddressForm = ({ isOpen, onClose, onSave, editAddress = null }) => {
   const [formData, setFormData] = useState({
     name: editAddress?.name || '',
+    firstName: editAddress?.first_name || '',
+    lastName: editAddress?.last_name || '',
     street: editAddress?.street_address || '',
     city: editAddress?.city || '',
     state: editAddress?.state || '',
@@ -28,21 +30,46 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null }) => {
   const validateForm = () => {
     const newErrors = {};
     if (!formData.name.trim()) newErrors.name = 'Address name is required';
+    if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
+    if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
     if (!formData.street.trim()) newErrors.street = 'Street address is required';
     if (!formData.city.trim()) newErrors.city = 'City is required';
     if (!formData.state.trim()) newErrors.state = 'State is required';
     if (!formData.postal_code.trim()) newErrors.postal_code = 'Postal code is required';
     if (!formData.country.trim()) newErrors.country = 'Country is required';
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (validateForm()) {
-      onSave(formData);
-      onClose();
+      try {
+        // Transform form data to match backend model
+        const addressData = {
+          user_id: "current_user_id", // This should come from auth context
+          name: formData.name,
+          type: "home", // Default type, could be made configurable
+          first_name: formData.firstName || "",
+          last_name: formData.lastName || "",
+          company: "",
+          street_address: formData.street,
+          apartment: "",
+          city: formData.city,
+          state: formData.state,
+          postal_code: formData.postal_code,
+          country: formData.country,
+          phone: formData.phone,
+          is_default: formData.is_default
+        };
+
+        await onSave(addressData);
+        onClose();
+      } catch (error) {
+        console.error('Error saving address:', error);
+        // Handle error (could show error message)
+      }
     }
   };
 
@@ -82,8 +109,38 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null }) => {
                     onChange={handleInputChange}
                     placeholder="e.g., Home, Work"
                     className={errors.name ? 'error' : ''}
+                    autoComplete="off"
                   />
                   {errors.name && <span className="error-message">{errors.name}</span>}
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>First Name *</label>
+                  <input
+                    type="text"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleInputChange}
+                    placeholder="John"
+                    className={errors.firstName ? 'error' : ''}
+                    autoComplete="off"
+                  />
+                  {errors.firstName && <span className="error-message">{errors.firstName}</span>}
+                </div>
+                <div className="form-group">
+                  <label>Last Name *</label>
+                  <input
+                    type="text"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleInputChange}
+                    placeholder="Doe"
+                    className={errors.lastName ? 'error' : ''}
+                    autoComplete="off"
+                  />
+                  {errors.lastName && <span className="error-message">{errors.lastName}</span>}
                 </div>
               </div>
 
@@ -97,6 +154,7 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null }) => {
                     onChange={handleInputChange}
                     placeholder="123 Main Street"
                     className={errors.street ? 'error' : ''}
+                    autoComplete="off"
                   />
                   {errors.street && <span className="error-message">{errors.street}</span>}
                 </div>
@@ -112,6 +170,7 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null }) => {
                     onChange={handleInputChange}
                     placeholder="New York"
                     className={errors.city ? 'error' : ''}
+                    autoComplete="off"
                   />
                   {errors.city && <span className="error-message">{errors.city}</span>}
                 </div>
@@ -124,6 +183,7 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null }) => {
                     onChange={handleInputChange}
                     placeholder="NY"
                     className={errors.state ? 'error' : ''}
+                    autoComplete="off"
                   />
                   {errors.state && <span className="error-message">{errors.state}</span>}
                 </div>
@@ -139,6 +199,7 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null }) => {
                     onChange={handleInputChange}
                     placeholder="10001"
                     className={errors.postal_code ? 'error' : ''}
+                    autoComplete="off"
                   />
                   {errors.postal_code && <span className="error-message">{errors.postal_code}</span>}
                 </div>
@@ -168,6 +229,7 @@ const AddressForm = ({ isOpen, onClose, onSave, editAddress = null }) => {
                     value={formData.phone}
                     onChange={handleInputChange}
                     placeholder="+1 (555) 123-4567"
+                    autoComplete="off"
                   />
                 </div>
               </div>

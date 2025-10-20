@@ -33,7 +33,8 @@ class UserService:
             "email": user_data.email,
             "first_name": user_data.first_name or "",
             "last_name": user_data.last_name or "",
-            "hashed_password": get_password_hash(user_data.password),
+            "hashed_password": get_password_hash(user_data.password) if user_data.password else None,
+            "google_id": user_data.google_id,
             "role": UserRole.CUSTOMER,
             "status": UserStatus.ACTIVE,
             "created_at": now,
@@ -43,7 +44,7 @@ class UserService:
             "phone": None,
             "address": None,
             "preferences": {
-                "email_newsletter": True,
+                "email_newsletter": getattr(user_data, 'newsletter_subscription', True),
                 "sms_notifications": False,
                 "promotions": True,
                 "order_updates": True,
@@ -70,6 +71,10 @@ class UserService:
         if not user_doc:
             return None
 
+        # Check if user has a password (not Google-only account)
+        if not user_doc.get("hashed_password"):
+            return None
+
         if not verify_password(login_data.password, user_doc["hashed_password"]):
             return None
 
@@ -81,6 +86,59 @@ class UserService:
 
         user_doc["id"] = user_doc["_id"]
         return UserInDB(**user_doc)
+
+    @staticmethod
+    async def get_user_by_google_id(google_id: str) -> Optional[UserInDB]:
+        """Get user by Google ID"""
+        user_doc = await MongoDB.get_collection(USERS_COLLECTION).find_one(
+            {"google_id": google_id}
+        )
+
+        if not user_doc:
+            return None
+
+        user_doc["id"] = user_doc["_id"]
+        return UserInDB(**user_doc)
+
+    @staticmethod
+    async def create_or_update_google_user(google_user_data: dict) -> UserInDB:
+        """Create or update user from Google OAuth data"""
+        # Check if user exists by Google ID
+        existing_user = await UserService.get_user_by_google_id(google_user_data["google_id"])
+
+        if existing_user:
+            # Update existing user with latest Google data
+            update_data = {
+                "first_name": google_user_data.get("first_name", existing_user.first_name),
+                "last_name": google_user_data.get("last_name", existing_user.last_name),
+                "profile_image": google_user_data.get("profile_image", existing_user.profile_image),
+                "updated_at": datetime.utcnow()
+            }
+            return await UserService.update_user(existing_user.id, update_data)
+
+        # Check if user exists by email
+        existing_email_user = await UserService.get_user_by_email(google_user_data["email"])
+        if existing_email_user:
+            # Link Google account to existing user
+            update_data = {
+                "google_id": google_user_data["google_id"],
+                "first_name": google_user_data.get("first_name", existing_email_user.first_name),
+                "last_name": google_user_data.get("last_name", existing_email_user.last_name),
+                "profile_image": google_user_data.get("profile_image", existing_email_user.profile_image),
+                "updated_at": datetime.utcnow()
+            }
+            return await UserService.update_user(existing_email_user.id, update_data)
+
+        # Create new user from Google data
+        user_create_data = UserCreate(
+            email=google_user_data["email"],
+            first_name=google_user_data.get("first_name", ""),
+            last_name=google_user_data.get("last_name", ""),
+            google_id=google_user_data["google_id"],
+            newsletter_subscription=True
+        )
+
+        return await UserService.create_user(user_create_data)
 
     @staticmethod
     async def get_user_by_id(user_id: str) -> Optional[UserInDB]:
@@ -109,12 +167,20 @@ class UserService:
         return UserInDB(**user_doc)
 
     @staticmethod
-    async def update_user(user_id: str, update_data: UserUpdate) -> Optional[UserInDB]:
+    async def update_user(user_id: str, update_data) -> Optional[UserInDB]:
         """Update user information"""
         update_dict = {"updated_at": datetime.utcnow()}
 
+        # Handle both UserUpdate objects and dictionaries
+        if hasattr(update_data, 'dict'):
+            # It's a Pydantic model
+            data_dict = update_data.dict(exclude_unset=True)
+        else:
+            # It's a dictionary
+            data_dict = update_data
+
         # Only include non-None values
-        for field, value in update_data.dict(exclude_unset=True).items():
+        for field, value in data_dict.items():
             if value is not None:
                 update_dict[field] = value
 

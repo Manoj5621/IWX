@@ -16,11 +16,15 @@ logger = logging.getLogger(__name__)
 
 class SecurityService:
     def __init__(self):
-        self.db = MongoDB.get_database()
-        self.settings_collection = self.db.security_settings
-        self.login_history_collection = self.db.login_history
-        self.devices_collection = self.db.devices
-        self.security_events_collection = self.db.security_events
+        try:
+            self.db = MongoDB.get_database()
+            self.settings_collection = self.db.security_settings
+            self.login_history_collection = self.db.login_history
+            self.devices_collection = self.db.devices
+            self.security_events_collection = self.db.security_events
+        except Exception as e:
+            logger.error(f"Failed to initialize SecurityService: {e}")
+            raise RuntimeError("Database connection failed") from e
 
     async def get_security_settings(self, user_id: str) -> SecuritySettings:
         """Get security settings for a user"""
@@ -45,7 +49,7 @@ class SecurityService:
             return SecuritySettings(**settings_dict)
         except Exception as e:
             logger.error(f"Get security settings error: {e}")
-            raise
+            raise ValueError(f"Failed to get security settings: {str(e)}")
 
     async def update_security_settings(self, user_id: str, update_data: SecuritySettingsUpdate) -> SecuritySettings:
         """Update security settings for a user"""
@@ -62,7 +66,7 @@ class SecurityService:
             return await self.get_security_settings(user_id)
         except Exception as e:
             logger.error(f"Update security settings error: {e}")
-            raise
+            raise ValueError(f"Failed to update security settings: {str(e)}")
 
     async def change_password(self, user_id: str, request: ChangePasswordRequest) -> bool:
         """Change user's password"""
@@ -72,15 +76,27 @@ class SecurityService:
 
             user = await user_service.get_user_by_id(user_id)
             if not user:
+                logger.error(f"User not found: {user_id}")
+                return False
+
+            # Check if user has a password (not Google-only account)
+            if not user.hashed_password:
+                logger.error("User does not have a password set (Google-only account)")
                 return False
 
             # Verify current password
             if not verify_password(request.current_password, user.hashed_password):
+                logger.error("Current password verification failed")
                 return False
 
             # Update password
             hashed_password = get_password_hash(request.new_password)
-            await user_service.update_user(user_id, {"hashed_password": hashed_password})
+
+            # Use the update_user method properly
+            update_result = await user_service.update_user(user_id, {"hashed_password": hashed_password})
+            if not update_result:
+                logger.error(f"Failed to update password for user: {user_id}")
+                return False
 
             # Log security event
             await self.log_security_event(
@@ -98,7 +114,7 @@ class SecurityService:
             return True
         except Exception as e:
             logger.error(f"Change password error: {e}")
-            raise
+            raise ValueError(f"Failed to change password: {str(e)}")
 
     async def enable_two_factor(self, user_id: str) -> dict:
         """Enable two-factor authentication for a user"""
@@ -125,7 +141,7 @@ class SecurityService:
             }
         except Exception as e:
             logger.error(f"Enable two factor error: {e}")
-            raise
+            raise ValueError(f"Failed to enable two-factor authentication: {str(e)}")
 
     async def verify_two_factor_setup(self, user_id: str, request: VerifyTwoFactorRequest) -> bool:
         """Verify two-factor setup with code"""
@@ -152,7 +168,7 @@ class SecurityService:
             return False
         except Exception as e:
             logger.error(f"Verify two factor setup error: {e}")
-            raise
+            raise ValueError(f"Failed to verify two-factor setup: {str(e)}")
 
     async def disable_two_factor(self, user_id: str) -> bool:
         """Disable two-factor authentication"""
@@ -174,7 +190,7 @@ class SecurityService:
             return True
         except Exception as e:
             logger.error(f"Disable two factor error: {e}")
-            raise
+            raise ValueError(f"Failed to disable two-factor authentication: {str(e)}")
 
     async def log_login_attempt(self, user_id: str, ip_address: str, user_agent: str, success: bool, failure_reason: Optional[str] = None):
         """Log a login attempt"""
@@ -194,17 +210,19 @@ class SecurityService:
             if not success:
                 await self.settings_collection.update_one(
                     {"user_id": user_id},
-                    {"$inc": {"failed_login_attempts": 1}, "$set": {"last_failed_login": datetime.utcnow()}}
+                    {"$inc": {"failed_login_attempts": 1}, "$set": {"last_failed_login": datetime.utcnow()}},
+                    upsert=True
                 )
             else:
                 # Reset failed attempts on successful login
                 await self.settings_collection.update_one(
                     {"user_id": user_id},
-                    {"$set": {"failed_login_attempts": 0, "last_failed_login": None}}
+                    {"$set": {"failed_login_attempts": 0, "last_failed_login": None}},
+                    upsert=True
                 )
         except Exception as e:
             logger.error(f"Log login attempt error: {e}")
-            raise
+            # Don't raise here as logging should not break main functionality
 
     async def get_login_history(self, user_id: str, limit: int = 50) -> List[LoginHistory]:
         """Get login history for a user"""
@@ -219,7 +237,7 @@ class SecurityService:
             return history
         except Exception as e:
             logger.error(f"Get login history error: {e}")
-            raise
+            raise ValueError(f"Failed to get login history: {str(e)}")
 
     async def get_connected_devices(self, user_id: str) -> List[DeviceInfo]:
         """Get connected devices for a user"""
@@ -234,7 +252,7 @@ class SecurityService:
             return devices
         except Exception as e:
             logger.error(f"Get connected devices error: {e}")
-            raise
+            raise ValueError(f"Failed to get connected devices: {str(e)}")
 
     async def log_security_event(self, user_id: str, event_type: str, ip_address: str = "", user_agent: str = "", details: Optional[dict] = None):
         """Log a security event"""
@@ -251,7 +269,7 @@ class SecurityService:
             await self.security_events_collection.insert_one(event_data)
         except Exception as e:
             logger.error(f"Log security event error: {e}")
-            raise
+            # Don't raise here as logging should not break main functionality
 
     async def get_security_stats(self, user_id: str) -> SecurityStats:
         """Get security statistics for a user"""
@@ -291,7 +309,7 @@ class SecurityService:
             )
         except Exception as e:
             logger.error(f"Get security stats error: {e}")
-            raise
+            raise ValueError(f"Failed to get security statistics: {str(e)}")
 
     async def deactivate_account(self, user_id: str, request: DeactivateAccountRequest) -> bool:
         """Deactivate user account"""
@@ -320,4 +338,4 @@ class SecurityService:
             return True
         except Exception as e:
             logger.error(f"Deactivate account error: {e}")
-            raise
+            raise ValueError(f"Failed to deactivate account: {str(e)}")

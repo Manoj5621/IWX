@@ -62,7 +62,7 @@ async def change_password(
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Current password is incorrect"
+                detail="Current password is incorrect or user does not have a password set"
             )
         return {"message": "Password changed successfully"}
     except HTTPException:

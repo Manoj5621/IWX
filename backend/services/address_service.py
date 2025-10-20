@@ -11,8 +11,12 @@ logger = logging.getLogger(__name__)
 
 class AddressService:
     def __init__(self):
-        self.db = MongoDB.get_database()
-        self.collection = self.db.addresses
+        try:
+            self.db = MongoDB.get_database()
+            self.collection = self.db.addresses
+        except Exception as e:
+            logger.error(f"Failed to initialize AddressService: {e}")
+            raise RuntimeError("Database connection failed") from e
 
     async def create_address(self, address_data: AddressCreate) -> AddressResponse:
         """Create a new address for a user"""
@@ -33,7 +37,7 @@ class AddressService:
             return AddressResponse(**address_dict)
         except Exception as e:
             logger.error(f"Create address error: {e}")
-            raise
+            raise ValueError(f"Failed to create address: {str(e)}")
 
     async def get_user_addresses(self, user_id: str) -> AddressListResponse:
         """Get all addresses for a user"""
@@ -54,7 +58,7 @@ class AddressService:
             )
         except Exception as e:
             logger.error(f"Get user addresses error: {e}")
-            raise
+            raise ValueError(f"Failed to get user addresses: {str(e)}")
 
     async def get_address_by_id(self, address_id: str, user_id: str) -> Optional[AddressResponse]:
         """Get a specific address by ID"""
@@ -71,7 +75,7 @@ class AddressService:
             return None
         except Exception as e:
             logger.error(f"Get address by ID error: {e}")
-            raise
+            raise ValueError(f"Failed to get address by ID: {str(e)}")
 
     async def update_address(self, address_id: str, user_id: str, update_data: AddressUpdate) -> Optional[AddressResponse]:
         """Update an address"""
@@ -95,7 +99,7 @@ class AddressService:
             return None
         except Exception as e:
             logger.error(f"Update address error: {e}")
-            raise
+            raise ValueError(f"Failed to update address: {str(e)}")
 
     async def delete_address(self, address_id: str, user_id: str) -> bool:
         """Delete an address"""
@@ -108,7 +112,7 @@ class AddressService:
             return result.deleted_count > 0
         except Exception as e:
             logger.error(f"Delete address error: {e}")
-            raise
+            raise ValueError(f"Failed to delete address: {str(e)}")
 
     async def set_default_address(self, address_id: str, user_id: str) -> Optional[AddressResponse]:
         """Set an address as default"""
@@ -129,7 +133,7 @@ class AddressService:
             return None
         except Exception as e:
             logger.error(f"Set default address error: {e}")
-            raise
+            raise ValueError(f"Failed to set default address: {str(e)}")
 
     async def _unset_other_defaults(self, user_id: str):
         """Unset default flag for all other addresses of a user"""
@@ -140,4 +144,4 @@ class AddressService:
             )
         except Exception as e:
             logger.error(f"Unset other defaults error: {e}")
-            raise
+            raise ValueError(f"Failed to unset other defaults: {str(e)}")

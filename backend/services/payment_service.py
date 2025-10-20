@@ -11,9 +11,13 @@ logger = logging.getLogger(__name__)
 
 class PaymentService:
     def __init__(self):
-        self.db = MongoDB.get_database()
-        self.collection = self.db.payments
-        self.billing_collection = self.db.billing_history
+        try:
+            self.db = MongoDB.get_database()
+            self.collection = self.db.payments
+            self.billing_collection = self.db.billing_history
+        except Exception as e:
+            logger.error(f"Failed to initialize PaymentService: {e}")
+            raise RuntimeError("Database connection failed") from e
 
     async def create_payment_method(self, payment_data: PaymentCreate) -> PaymentResponse:
         """Create a new payment method for a user"""
@@ -35,7 +39,7 @@ class PaymentService:
             return PaymentResponse(**payment_dict)
         except Exception as e:
             logger.error(f"Create payment method error: {e}")
-            raise
+            raise ValueError(f"Failed to create payment method: {str(e)}")
 
     async def get_user_payment_methods(self, user_id: str) -> PaymentListResponse:
         """Get all payment methods for a user"""
@@ -60,7 +64,7 @@ class PaymentService:
             )
         except Exception as e:
             logger.error(f"Get user payment methods error: {e}")
-            raise
+            raise ValueError(f"Failed to get user payment methods: {str(e)}")
 
     async def get_payment_method_by_id(self, payment_id: str, user_id: str) -> Optional[PaymentResponse]:
         """Get a specific payment method by ID"""
@@ -78,7 +82,7 @@ class PaymentService:
             return None
         except Exception as e:
             logger.error(f"Get payment method by ID error: {e}")
-            raise
+            raise ValueError(f"Failed to get payment method by ID: {str(e)}")
 
     async def update_payment_method(self, payment_id: str, user_id: str, update_data: PaymentUpdate) -> Optional[PaymentResponse]:
         """Update a payment method"""
@@ -102,7 +106,7 @@ class PaymentService:
             return None
         except Exception as e:
             logger.error(f"Update payment method error: {e}")
-            raise
+            raise ValueError(f"Failed to update payment method: {str(e)}")
 
     async def delete_payment_method(self, payment_id: str, user_id: str) -> bool:
         """Delete a payment method (soft delete by setting status to removed)"""
@@ -115,7 +119,7 @@ class PaymentService:
             return result.modified_count > 0
         except Exception as e:
             logger.error(f"Delete payment method error: {e}")
-            raise
+            raise ValueError(f"Failed to delete payment method: {str(e)}")
 
     async def set_default_payment_method(self, payment_id: str, user_id: str) -> Optional[PaymentResponse]:
         """Set a payment method as default"""
@@ -136,7 +140,7 @@ class PaymentService:
             return None
         except Exception as e:
             logger.error(f"Set default payment method error: {e}")
-            raise
+            raise ValueError(f"Failed to set default payment method: {str(e)}")
 
     async def get_billing_history(self, user_id: str, skip: int = 0, limit: int = 50) -> BillingHistoryResponse:
         """Get billing history for a user"""
@@ -154,7 +158,7 @@ class PaymentService:
             )
         except Exception as e:
             logger.error(f"Get billing history error: {e}")
-            raise
+            raise ValueError(f"Failed to get billing history: {str(e)}")
 
     async def _unset_other_defaults(self, user_id: str):
         """Unset default flag for all other payment methods of a user"""
@@ -165,4 +169,4 @@ class PaymentService:
             )
         except Exception as e:
             logger.error(f"Unset other payment defaults error: {e}")
-            raise
+            raise ValueError(f"Failed to unset other payment defaults: {str(e)}")

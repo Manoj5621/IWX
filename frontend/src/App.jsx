@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import { BrowserRouter as Router, Routes, Route} from "react-router-dom"
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation} from "react-router-dom"
 import Home from './pages/Home'
 import ProductListing from './pages/ProductListing'
 import Profile from './pages/Profile'
@@ -31,6 +31,29 @@ function App() {
   useEffect(() => {
     const initAuth = async () => {
       const token = localStorage.getItem('token');
+      const urlParams = new URLSearchParams(window.location.search);
+      const googleCode = urlParams.get('code');
+
+      // Handle Google OAuth callback
+      if (googleCode && window.location.pathname === '/auth') {
+        try {
+          const response = await authAPI.googleCallback(googleCode);
+          const userRole = response.user?.role || 'user';
+          localStorage.setItem('userRole', userRole);
+          localStorage.setItem('token', response.access_token);
+          dispatch(loginSuccess({
+            user: response.user,
+            token: response.access_token
+          }));
+          // Clean up URL
+          window.history.replaceState({}, document.title, '/');
+          return;
+        } catch (error) {
+          console.error('Google OAuth callback error:', error);
+          dispatch(loginFailure('Google authentication failed'));
+        }
+      }
+
       if (token) {
         try {
           const user = await authAPI.getCurrentUser();

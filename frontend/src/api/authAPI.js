@@ -35,5 +35,17 @@ export const authAPI = {
   refreshToken: async () => {
     const response = await axiosClient.post('/auth/refresh-token');
     return response.data;
+  },
+
+  googleLogin: async () => {
+    const response = await axiosClient.get('/auth/google/login');
+    return response.data;
+  },
+
+  googleCallback: async (code) => {
+    const response = await axiosClient.get('/auth/google/callback', {
+      params: { code }
+    });
+    return response.data;
   }
 };

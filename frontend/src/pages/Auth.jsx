@@ -105,7 +105,8 @@ const Auth = () => {
           email: formData.email,
           first_name: formData.firstName,
           last_name: formData.lastName,
-          password: formData.password
+          password: formData.password,
+          newsletter_subscription: formData.newsletter
         });
         // After registration, automatically log in
         const response = await authAPI.login({
@@ -124,8 +125,20 @@ const Auth = () => {
         navigate('/');
       }
     } catch (error) {
-      setErrors({ general: error.message });
+      setErrors({ general: error.response?.data?.detail || error.message || 'An error occurred' });
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setIsLoading(true);
+      const response = await authAPI.googleLogin();
+      // Redirect to Google OAuth URL
+      window.location.href = response.auth_url;
+    } catch (error) {
+      setErrors({ general: error.response?.data?.detail || error.message || 'Failed to initiate Google login' });
       setIsLoading(false);
     }
   };
@@ -294,7 +307,7 @@ const Auth = () => {
                 <div className="social-login">
                   <p>Or continue with</p>
                   <div className="social-buttons">
-                    <button type="button" className="social-btn google">
+                    <button type="button" className="social-btn google" onClick={handleGoogleLogin} disabled={isLoading}>
                       <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
                         <path d="M16.5 9.18182C16.5 8.64091 16.4455 8.07727 16.3636 7.54545H9V10.5H13.2955C13.1155 11.3964 12.59 12.1818 11.8227 12.6818V14.5591H14.1773C15.5545 13.3136 16.5 11.4227 16.5 9.18182Z" fill="#4285F4"/>
                         <path d="M9 17C11.05 17 12.7955 16.2545 14.1773 14.5591L11.8227 12.6818C11.0773 13.1591 10.0955 13.4318 9 13.4318C6.99545 13.4318 5.28636 12.0227 4.63182 10.0455H2.18636V12.0227C3.56818 14.6591 6.13636 17 9 17Z" fill="#34A853"/>

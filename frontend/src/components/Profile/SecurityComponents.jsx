@@ -1,6 +1,7 @@
 // SecurityComponents.jsx
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { securityAPI } from '../../api/securityAPI';
 import '../../pages/Profile.css';
 
 const ChangePassword = ({ isOpen, onClose }) => {
@@ -37,12 +38,23 @@ const ChangePassword = ({ isOpen, onClose }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (validateForm()) {
-      // Simulate API call
-      console.log('Password changed successfully');
-      onClose();
+      try {
+        const passwordData = {
+          current_password: formData.current_password,
+          new_password: formData.new_password
+        };
+
+        // Call the security API
+        await securityAPI.changePassword(passwordData);
+        console.log('Password changed successfully');
+        onClose();
+      } catch (error) {
+        console.error('Error changing password:', error);
+        // Handle error (could show error message)
+      }
     }
   };
 
@@ -135,15 +147,27 @@ const TwoFactorAuth = ({ isOpen, onClose }) => {
   const [step, setStep] = useState(1);
   const [verificationCode, setVerificationCode] = useState('');
 
-  const handleEnable2FA = () => {
-    setStep(2);
+  const handleEnable2FA = async () => {
+    try {
+      const response = await securityAPI.enableTwoFactor();
+      // In a real app, you'd show the QR code from response
+      console.log('2FA setup initiated:', response);
+      setStep(2);
+    } catch (error) {
+      console.error('Error enabling 2FA:', error);
+    }
   };
 
-  const handleVerify = (e) => {
+  const handleVerify = async (e) => {
     e.preventDefault();
-    // Simulate verification
-    console.log('2FA enabled successfully');
-    onClose();
+    try {
+      const verificationData = { code: verificationCode };
+      await securityAPI.verifyTwoFactorSetup(verificationData);
+      console.log('2FA enabled successfully');
+      onClose();
+    } catch (error) {
+      console.error('Error verifying 2FA:', error);
+    }
   };
 
   return (
@@ -235,6 +259,7 @@ const TwoFactorAuth = ({ isOpen, onClose }) => {
                           onChange={(e) => setVerificationCode(e.target.value)}
                           placeholder="123456"
                           maxLength="6"
+                          autoComplete="off"
                         />
                       </div>
 

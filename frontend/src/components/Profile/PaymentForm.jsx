@@ -53,11 +53,31 @@ const PaymentForm = ({ isOpen, onClose, onSave, editPayment = null }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (validateForm()) {
-      onSave(formData);
-      onClose();
+      try {
+        // Transform form data to match backend model
+        const paymentData = {
+          user_id: "current_user_id", // This should come from auth context
+          type: "credit_card", // Default to credit card
+          is_default: formData.is_default,
+          nickname: "",
+          credit_card: {
+            card_brand: "visa", // Could be detected from card number
+            last_four: formData.card_number.replace(/\s/g, '').slice(-4),
+            expiry_month: parseInt(formData.expiry_month),
+            expiry_year: parseInt(formData.expiry_year),
+            cardholder_name: formData.card_holder
+          }
+        };
+
+        await onSave(paymentData);
+        onClose();
+      } catch (error) {
+        console.error('Error saving payment method:', error);
+        // Handle error (could show error message)
+      }
     }
   };
 
@@ -121,6 +141,7 @@ const PaymentForm = ({ isOpen, onClose, onSave, editPayment = null }) => {
                     placeholder="1234 5678 9012 3456"
                     maxLength="19"
                     className={errors.card_number ? 'error' : ''}
+                    autoComplete="off"
                   />
                   {errors.card_number && <span className="error-message">{errors.card_number}</span>}
                 </div>
@@ -136,6 +157,7 @@ const PaymentForm = ({ isOpen, onClose, onSave, editPayment = null }) => {
                     onChange={handleInputChange}
                     placeholder="John Doe"
                     className={errors.card_holder ? 'error' : ''}
+                    autoComplete="off"
                   />
                   {errors.card_holder && <span className="error-message">{errors.card_holder}</span>}
                 </div>
@@ -180,6 +202,7 @@ const PaymentForm = ({ isOpen, onClose, onSave, editPayment = null }) => {
                     placeholder="123"
                     maxLength="4"
                     className={errors.cvv ? 'error' : ''}
+                    autoComplete="off"
                   />
                   {errors.cvv && <span className="error-message">{errors.cvv}</span>}
                 </div>

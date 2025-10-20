@@ -193,11 +193,15 @@ const Profile = () => {
         securityAPI.getLoginHistory(),
         securityAPI.getConnectedDevices()
       ]);
-      setSecuritySettings(settingsResponse);
-      setLoginHistory(loginHistoryResponse);
-      setConnectedDevices(devicesResponse);
+      setSecuritySettings(settingsResponse || {});
+      setLoginHistory(loginHistoryResponse || []);
+      setConnectedDevices(devicesResponse || []);
     } catch (err) {
       console.error('Error loading security data:', err);
+      // Set empty defaults on error
+      setSecuritySettings({});
+      setLoginHistory([]);
+      setConnectedDevices([]);
     } finally {
       setLoadingSecurity(false);
     }
@@ -427,27 +431,25 @@ const Profile = () => {
     setShowAddressForm(true);
   };
 
-  const handleSaveAddress = (addressData) => {
-    console.log('Saving address:', addressData);
-    // In real app, this would call an API
-    if (editingAddress) {
-      // Update existing address
-      const updatedAddresses = addresses.map(addr => 
-        addr.id === editingAddress.id ? { ...addr, ...addressData } : addr
-      );
-      setAddresses(updatedAddresses);
-      setSuccess('Address updated successfully!');
-    } else {
-      // Add new address
-      const newAddress = {
-        id: Date.now(),
-        ...addressData,
-        created_at: new Date().toISOString()
-      };
-      setAddresses([...addresses, newAddress]);
-      setSuccess('Address added successfully!');
+  const handleSaveAddress = async (addressData) => {
+    try {
+      if (editingAddress) {
+        // Update existing address
+        await addressAPI.updateAddress(editingAddress.id, addressData);
+        setSuccess('Address updated successfully!');
+      } else {
+        // Add new address
+        await addressAPI.createAddress(addressData);
+        setSuccess('Address added successfully!');
+      }
+      // Reload addresses
+      loadAddresses();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Error saving address:', error);
+      setError('Failed to save address. Please try again.');
+      setTimeout(() => setError(''), 3000);
     }
-    setTimeout(() => setSuccess(''), 3000);
   };
 
   const handleAddPayment = () => {
@@ -460,28 +462,25 @@ const Profile = () => {
     setShowPaymentForm(true);
   };
 
-  const handleSavePayment = (paymentData) => {
-    console.log('Saving payment:', paymentData);
-    // In real app, this would call an API
-    if (editingPayment) {
-      // Update existing payment
-      const updatedPayments = paymentMethods.map(payment => 
-        payment.id === editingPayment.id ? { ...payment, ...paymentData } : payment
-      );
-      setPaymentMethods(updatedPayments);
-      setSuccess('Payment method updated successfully!');
-    } else {
-      // Add new payment
-      const newPayment = {
-        id: Date.now(),
-        ...paymentData,
-        display_name: `•••• ${paymentData.card_number.slice(-4)}`,
-        created_at: new Date().toISOString()
-      };
-      setPaymentMethods([...paymentMethods, newPayment]);
-      setSuccess('Payment method added successfully!');
+  const handleSavePayment = async (paymentData) => {
+    try {
+      if (editingPayment) {
+        // Update existing payment
+        await paymentAPI.updatePaymentMethod(editingPayment.id, paymentData);
+        setSuccess('Payment method updated successfully!');
+      } else {
+        // Add new payment
+        await paymentAPI.createPaymentMethod(paymentData);
+        setSuccess('Payment method added successfully!');
+      }
+      // Reload payment methods
+      loadPaymentMethods();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Error saving payment method:', error);
+      setError('Failed to save payment method. Please try again.');
+      setTimeout(() => setError(''), 3000);
     }
-    setTimeout(() => setSuccess(''), 3000);
   };
 
   return (
@@ -916,7 +915,8 @@ const Profile = () => {
                             {address.is_default && <span className="default-badge">Default</span>}
                           </div>
                           <div className="address-details">
-                            <p>{address.street}</p>
+                            <p>{address.first_name} {address.last_name}</p>
+                            <p>{address.street_address}</p>
                             <p>{address.city}, {address.state} {address.postal_code}</p>
                             <p>{address.country}</p>
                             {address.phone && <p>📞 {address.phone}</p>}

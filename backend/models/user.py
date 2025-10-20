@@ -25,7 +25,9 @@ class UserCreate(BaseModel):
     email: EmailStr
     first_name: Optional[str] = Field(None, min_length=1, max_length=50)
     last_name: Optional[str] = Field(None, min_length=1, max_length=50)
-    password: str = Field(..., min_length=6)
+    password: Optional[str] = Field(None, min_length=6)
+    newsletter_subscription: Optional[bool] = True
+    google_id: Optional[str] = None
 
 class UserUpdate(BaseModel):
     first_name: Optional[str] = Field(None, min_length=1, max_length=50)
@@ -39,7 +41,8 @@ class UserUpdate(BaseModel):
 
 class UserInDB(UserBase):
     id: str
-    hashed_password: str
+    hashed_password: Optional[str] = None
+    google_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None
@@ -59,6 +62,7 @@ class UserResponse(BaseModel):
     last_name: Optional[str] = None
     role: UserRole
     status: UserStatus
+    google_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     last_login: Optional[datetime] = None

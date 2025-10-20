@@ -69,6 +69,7 @@ class SecuritySettingsUpdate(BaseModel):
     two_factor_enabled: Optional[bool] = None
     login_alerts: Optional[bool] = None
     suspicious_activity_alerts: Optional[bool] = None
+    password_last_changed: Optional[datetime] = None
 
 class SecurityEvent(BaseModel):
     id: str
