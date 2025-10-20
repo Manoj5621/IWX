@@ -65,7 +65,35 @@ manager = ConnectionManager()
 @router.websocket("/dashboard")
 async def dashboard_websocket(websocket: WebSocket):
     """WebSocket for admin dashboard real-time updates"""
-    await manager.connect(websocket, "dashboard")
+    # Get token from query parameters
+    token = websocket.query_params.get('token')
+
+    # Authenticate user if token is provided
+    if token:
+        from auth.security import verify_token
+        from auth.dependencies import get_current_admin_user
+        from models.user import UserInDB
+
+        payload = verify_token(token)
+        if payload:
+            user_id = payload.get("sub")
+            if user_id:
+                from database.mongodb import MongoDB, USERS_COLLECTION
+                user_doc = await MongoDB.get_collection(USERS_COLLECTION).find_one({"_id": user_id})
+                if user_doc and user_doc.get("role") == "admin" and user_doc.get("status") == "active":
+                    await manager.connect(websocket, "dashboard")
+                else:
+                    await websocket.close(code=1008, reason="Unauthorized")
+                    return
+            else:
+                await websocket.close(code=1008, reason="Invalid token")
+                return
+        else:
+            await websocket.close(code=1008, reason="Invalid token")
+            return
+    else:
+        await websocket.close(code=1008, reason="Authentication required")
+        return
 
     try:
         while True:

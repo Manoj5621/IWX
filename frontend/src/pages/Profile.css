@@ -87,6 +87,8 @@
   color: #333;
 }
 
+
+
 .profile-nav button:hover {
   background: #f5f5f5;
 }
@@ -248,6 +250,7 @@
 .preference-item h4 {
   font-size: 15px;
   margin-bottom: 5px;
+  text-align: left;
 }
 
 .preference-item p {

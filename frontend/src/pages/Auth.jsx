@@ -1,5 +1,5 @@
 // Auth.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
@@ -168,6 +168,51 @@ React.useEffect(() => {
       window.location.href = response.auth_url;
     } catch (error) {
       setErrors({ general: error.response?.data?.detail || error.message || 'Failed to initiate Google login' });
+      setIsLoading(false);
+    }
+  };
+
+  // Handle Google OAuth callback via URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('session_id');
+    const error = urlParams.get('error');
+
+    if (error === 'google_auth_failed') {
+      setErrors({ general: 'Google authentication failed. Please try again.' });
+      // Clear URL parameters
+      window.history.replaceState({}, document.title, '/auth');
+      return;
+    }
+
+    if (sessionId && window.location.pathname === '/auth/google/callback') {
+      // Fetch auth data from backend using session ID
+      fetchAuthData(sessionId);
+    }
+  }, []);
+
+  const fetchAuthData = async (sessionId) => {
+    try {
+      setIsLoading(true);
+      const response = await authAPI.getGoogleAuthData(sessionId);
+
+      // Store user role in localStorage
+      const userRole = response.user?.role || 'user';
+      localStorage.setItem('userRole', userRole);
+
+      // Dispatch login success to Redux store
+      dispatch(loginSuccess({
+        user: response.user,
+        token: response.access_token
+      }));
+
+      // Clear URL parameters and redirect to home
+      window.history.replaceState({}, document.title, '/');
+      navigate('/');
+    } catch (error) {
+      setErrors({ general: error.response?.data?.detail || error.message || 'Failed to complete authentication' });
+      navigate('/auth');
+    } finally {
       setIsLoading(false);
     }
   };

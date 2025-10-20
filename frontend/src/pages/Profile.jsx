@@ -264,15 +264,9 @@ const Profile = () => {
     try {
       const updatedUser = await authAPI.updateCurrentUser({ preferences: newPreferences });
       dispatch(updateUser(updatedUser));
-      setSuccess('Preferences updated successfully!');
-      setAlertType('success');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error updating preferences:', err);
       setPreferences(preferences);
-      setError('Failed to update preferences. Please try again.');
-      setAlertType('error');
-      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -297,14 +291,9 @@ const Profile = () => {
       if (updatedUser) {
         dispatch(updateUser(updatedUser));
         setUserData(updatedUser);
-        setSuccess('Profile updated successfully!');
-        setAlertType('success');
-        setTimeout(() => setSuccess(''), 3000);
       }
     } catch (err) {
       console.error('Error updating profile:', err);
-      setError('Failed to update profile. Please try again.');
-      setAlertType('error');
     } finally {
       setLoading(false);
       setIsEditing(false);
@@ -344,14 +333,8 @@ const Profile = () => {
     try {
       await addressAPI.setDefaultAddress(addressId);
       await loadAddresses();
-      setSuccess('Default address updated successfully!');
-      setAlertType('success');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error setting default address:', err);
-      setError('Failed to update default address. Please try again.');
-      setAlertType('error');
-      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -376,9 +359,6 @@ const Profile = () => {
     try {
       await paymentAPI.setDefaultPaymentMethod(paymentId);
       await loadPaymentMethods();
-      setSuccess('Default payment method updated successfully!');
-      setAlertType('success');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error setting default payment:', err);
       setError('Failed to update default payment method. Please try again.');
@@ -428,15 +408,9 @@ const Profile = () => {
       setNotificationPreferences(updatedPreferences);
 
       await notificationAPI.updateNotificationPreferences(updatedPreferences);
-      setSuccess('Notification preferences updated successfully!');
-      setAlertType('success');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error updating notification preferences:', err);
       setNotificationPreferences(notificationPreferences);
-      setError('Failed to update notification preferences. Please try again.');
-      setAlertType('error');
-      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -490,12 +464,8 @@ const Profile = () => {
       setSuccess('');
       if (editingAddress) {
         await addressAPI.updateAddress(editingAddress.id, addressData);
-        setSuccess('Address updated successfully!');
-        setAlertType('success');
       } else {
         await addressAPI.createAddress(addressData);
-        setSuccess('Address added successfully!');
-        setAlertType('success');
       }
       await loadAddresses();
       setTimeout(() => setSuccess(''), 3000);
@@ -523,12 +493,8 @@ const Profile = () => {
       setSuccess('');
       if (editingPayment) {
         await paymentAPI.updatePaymentMethod(editingPayment.id, paymentData);
-        setSuccess('Payment method updated successfully!');
-        setAlertType('success');
       } else {
         await paymentAPI.createPaymentMethod(paymentData);
-        setSuccess('Payment method added successfully!');
-        setAlertType('success');
       }
       await loadPaymentMethods();
       setTimeout(() => setSuccess(''), 3000);

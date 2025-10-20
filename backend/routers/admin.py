@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import Optional, List
-from models.user import UserResponse, UserUpdate, UserStats
+from models.user import UserResponse, UserUpdate, UserStats, UserCreate
 from models.product import ProductStats
 from models.order import OrderStats
 from services.user_service import UserService
@@ -13,6 +13,43 @@ import logging
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
+
+@router.post("/users", response_model=UserResponse)
+async def create_user(
+    user_data: UserCreate,
+    current_user: UserInDB = Depends(get_current_admin_user)
+):
+    """Create a new user (Admin only)"""
+    try:
+        user = await UserService.create_user(user_data)
+
+        # Broadcast user creation via WebSocket
+        from routers.websocket import broadcast_user_activity
+        await broadcast_user_activity(user.id, "user_created", {
+            "action": "create",
+            "user": {
+                "id": user.id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "role": user.role,
+                "status": user.status,
+                "last_login": user.last_login.isoformat() if user.last_login else None
+            }
+        })
+
+        return UserResponse(**user.dict())
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Create user error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create user"
+        )
 
 @router.get("/users", response_model=List[UserResponse])
 async def list_users(
@@ -75,6 +112,22 @@ async def update_user(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
+
+        # Broadcast user update via WebSocket
+        from routers.websocket import broadcast_user_activity
+        await broadcast_user_activity(user_id, "user_updated", {
+            "action": "update",
+            "user": {
+                "id": user.id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "role": user.role,
+                "status": user.status,
+                "last_login": user.last_login.isoformat() if user.last_login else None
+            }
+        })
+
         return UserResponse(**user.dict())
     except HTTPException:
         raise
@@ -98,6 +151,14 @@ async def delete_user(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
+
+        # Broadcast user deletion via WebSocket
+        from routers.websocket import broadcast_user_activity
+        await broadcast_user_activity(user_id, "user_deleted", {
+            "action": "delete",
+            "user_id": user_id
+        })
+
         return {"message": "User deleted successfully"}
     except HTTPException:
         raise
@@ -154,6 +215,18 @@ async def get_dashboard_stats(current_user: UserInDB = Depends(get_current_admin
         user_stats = await UserService.get_user_stats()
         product_stats = await ProductService.get_product_stats()
         order_stats = await OrderService.get_order_stats()
+
+        # Broadcast stats update via WebSocket
+        from routers.websocket import broadcast_dashboard_update
+        await broadcast_dashboard_update("stats_update", {
+            "totalSales": order_stats.total_revenue,
+            "totalOrders": order_stats.total_orders,
+            "totalCustomers": user_stats.total_users,
+            "totalProducts": product_stats.total_products,
+            "revenue": order_stats.total_revenue,
+            "visitors": 0,  # Would come from analytics
+            "conversionRate": 0  # Would be calculated
+        })
 
         return {
             "users": user_stats.dict(),
