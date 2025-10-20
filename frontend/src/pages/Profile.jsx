@@ -10,6 +10,9 @@ import { wishlistAPI } from '../api/wishlistAPI';
 import { notificationAPI } from '../api/notificationAPI';
 import { securityAPI } from '../api/securityAPI';
 import './Profile.css';
+import AddressForm from '../components/Profile/AddressForm';
+import PaymentForm from '../components/Profile/PaymentForm';
+import { ChangePassword, TwoFactorAuth, LoginActivity, ConnectedDevices } from '../components/Profile/SecurityComponents';
 
 const Profile = () => {
   const dispatch = useDispatch();
@@ -73,6 +76,14 @@ const Profile = () => {
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [loadingSecurity, setLoadingSecurity] = useState(false);
 
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showTwoFactorAuth, setShowTwoFactorAuth] = useState(false);
+  const [showLoginActivity, setShowLoginActivity] = useState(false);
+  const [showConnectedDevices, setShowConnectedDevices] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(null);
+  const [editingPayment, setEditingPayment] = useState(null);
 
   useEffect(() => {
     if (user) {
@@ -405,6 +416,73 @@ const Profile = () => {
       </div>
     );
   }
+
+  const handleAddAddress = () => {
+    setEditingAddress(null);
+    setShowAddressForm(true);
+  };
+
+  const handleEditAddress = (address) => {
+    setEditingAddress(address);
+    setShowAddressForm(true);
+  };
+
+  const handleSaveAddress = (addressData) => {
+    console.log('Saving address:', addressData);
+    // In real app, this would call an API
+    if (editingAddress) {
+      // Update existing address
+      const updatedAddresses = addresses.map(addr => 
+        addr.id === editingAddress.id ? { ...addr, ...addressData } : addr
+      );
+      setAddresses(updatedAddresses);
+      setSuccess('Address updated successfully!');
+    } else {
+      // Add new address
+      const newAddress = {
+        id: Date.now(),
+        ...addressData,
+        created_at: new Date().toISOString()
+      };
+      setAddresses([...addresses, newAddress]);
+      setSuccess('Address added successfully!');
+    }
+    setTimeout(() => setSuccess(''), 3000);
+  };
+
+  const handleAddPayment = () => {
+    setEditingPayment(null);
+    setShowPaymentForm(true);
+  };
+
+  const handleEditPayment = (payment) => {
+    setEditingPayment(payment);
+    setShowPaymentForm(true);
+  };
+
+  const handleSavePayment = (paymentData) => {
+    console.log('Saving payment:', paymentData);
+    // In real app, this would call an API
+    if (editingPayment) {
+      // Update existing payment
+      const updatedPayments = paymentMethods.map(payment => 
+        payment.id === editingPayment.id ? { ...payment, ...paymentData } : payment
+      );
+      setPaymentMethods(updatedPayments);
+      setSuccess('Payment method updated successfully!');
+    } else {
+      // Add new payment
+      const newPayment = {
+        id: Date.now(),
+        ...paymentData,
+        display_name: `•••• ${paymentData.card_number.slice(-4)}`,
+        created_at: new Date().toISOString()
+      };
+      setPaymentMethods([...paymentMethods, newPayment]);
+      setSuccess('Payment method added successfully!');
+    }
+    setTimeout(() => setSuccess(''), 3000);
+  };
 
   return (
     <div className="profile-container">
@@ -815,7 +893,9 @@ const Profile = () => {
                 <div className="tab-content">
                   <div className="tab-header">
                     <h2>Saved Addresses</h2>
-                    <button className="add-address-btn">Add New Address</button>
+                    <button className="add-address-btn" onClick={handleAddAddress}>
+                      Add New Address
+                    </button>
                   </div>
 
                   <div className="addresses-grid">
@@ -824,7 +904,9 @@ const Profile = () => {
                     ) : addresses.length === 0 ? (
                       <div className="empty-state">
                         <p>No addresses saved. Add your first address to make checkout faster!</p>
-                        <button className="add-address-btn">Add New Address</button>
+                        <button className="add-address-btn" onClick={handleAddAddress}>
+                          Add New Address
+                        </button>
                       </div>
                     ) : (
                       addresses.map(address => (
@@ -834,11 +916,18 @@ const Profile = () => {
                             {address.is_default && <span className="default-badge">Default</span>}
                           </div>
                           <div className="address-details">
-                            <p>{address.street_address}</p>
+                            <p>{address.street}</p>
                             <p>{address.city}, {address.state} {address.postal_code}</p>
                             <p>{address.country}</p>
+                            {address.phone && <p>📞 {address.phone}</p>}
                           </div>
                           <div className="address-actions">
+                            <button 
+                              className="set-default-btn"
+                              onClick={() => handleEditAddress(address)}
+                            >
+                              Edit
+                            </button>
                             {!address.is_default && (
                               <button
                                 className="set-default-btn"
@@ -858,6 +947,8 @@ const Profile = () => {
                       ))
                     )}
                   </div>
+
+                  {/* Shipping info section */}
 
                   <div className="shipping-info">
                     <h3>Shipping Options</h3>
@@ -885,7 +976,9 @@ const Profile = () => {
                 <div className="tab-content">
                   <div className="tab-header">
                     <h2>Payment Methods</h2>
-                    <button className="add-payment-btn">Add Payment Method</button>
+                    <button className="add-payment-btn" onClick={handleAddPayment}>
+                      Add Payment Method
+                    </button>
                   </div>
 
                   <div className="payment-methods-list">
@@ -894,7 +987,9 @@ const Profile = () => {
                     ) : paymentMethods.length === 0 ? (
                       <div className="empty-state">
                         <p>No payment methods saved. Add a payment method for faster checkout!</p>
-                        <button className="add-payment-btn">Add Payment Method</button>
+                        <button className="add-payment-btn" onClick={handleAddPayment}>
+                          Add Payment Method
+                        </button>
                       </div>
                     ) : (
                       paymentMethods.map(payment => (
@@ -904,13 +999,18 @@ const Profile = () => {
                               <div className="card-icon">💳</div>
                               <div>
                                 <h3>{payment.display_name}</h3>
-                                {payment.credit_card && (
-                                  <p>Expires {payment.credit_card.expiry_month}/{payment.credit_card.expiry_year}</p>
+                                {payment.expiry_month && (
+                                  <p>Expires {payment.expiry_month}/{payment.expiry_year}</p>
                                 )}
                               </div>
                             </div>
                             <div className="payment-actions">
-                              <button className="action-btn">Edit</button>
+                              <button 
+                                className="action-btn"
+                                onClick={() => handleEditPayment(payment)}
+                              >
+                                Edit
+                              </button>
                               {!payment.is_default && (
                                 <button
                                   className="set-default-btn"
@@ -931,6 +1031,8 @@ const Profile = () => {
                       ))
                     )}
                   </div>
+
+                  {/* Billing history section */}
 
                   <div className="billing-history">
                     <h3>Billing History</h3>
@@ -1173,28 +1275,48 @@ const Profile = () => {
                         <h3>Password</h3>
                         <p>Last changed 2 months ago</p>
                       </div>
-                      <button className="change-password-btn">Change Password</button>
+                      <button 
+                        className="change-password-btn"
+                        onClick={() => setShowChangePassword(true)}
+                      >
+                        Change Password
+                      </button>
                     </div>
                     <div className="security-item">
                       <div>
                         <h3>Two-Factor Authentication</h3>
                         <p>Add an extra layer of security to your account</p>
                       </div>
-                      <button className="change-password-btn">Enable 2FA</button>
+                      <button 
+                        className="change-password-btn"
+                        onClick={() => setShowTwoFactorAuth(true)}
+                      >
+                        Enable 2FA
+                      </button>
                     </div>
                     <div className="security-item">
                       <div>
                         <h3>Login Activity</h3>
                         <p>Review your recent account activity</p>
                       </div>
-                      <button className="view-activity-btn">View Activity</button>
+                      <button 
+                        className="view-activity-btn"
+                        onClick={() => setShowLoginActivity(true)}
+                      >
+                        View Activity
+                      </button>
                     </div>
                     <div className="security-item">
                       <div>
                         <h3>Connected Devices</h3>
                         <p>Manage devices that have access to your account</p>
                       </div>
-                      <button className="manage-devices-btn">Manage Devices</button>
+                      <button 
+                        className="manage-devices-btn"
+                        onClick={() => setShowConnectedDevices(true)}
+                      >
+                        Manage Devices
+                      </button>
                     </div>
                   </div>
 
@@ -1224,6 +1346,40 @@ const Profile = () => {
                   </div>
                 </div>
               )}
+              
+              <AddressForm
+                isOpen={showAddressForm}
+                onClose={() => setShowAddressForm(false)}
+                onSave={handleSaveAddress}
+                editAddress={editingAddress}
+              />
+
+              <PaymentForm
+                isOpen={showPaymentForm}
+                onClose={() => setShowPaymentForm(false)}
+                onSave={handleSavePayment}
+                editPayment={editingPayment}
+              />
+
+              <ChangePassword
+                isOpen={showChangePassword}
+                onClose={() => setShowChangePassword(false)}
+              />
+
+              <TwoFactorAuth
+                isOpen={showTwoFactorAuth}
+                onClose={() => setShowTwoFactorAuth(false)}
+              />
+
+              <LoginActivity
+                isOpen={showLoginActivity}
+                onClose={() => setShowLoginActivity(false)}
+              />
+
+              <ConnectedDevices
+                isOpen={showConnectedDevices}
+                onClose={() => setShowConnectedDevices(false)}
+              />
 
             </motion.div>
           </AnimatePresence>
