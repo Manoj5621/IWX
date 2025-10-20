@@ -22,6 +22,23 @@ async def register(user_data: UserCreate):
     """Register a new user"""
     try:
         user = await UserService.create_user(user_data)
+
+        # Broadcast user registration via WebSocket for real-time admin dashboard updates
+        from routers.websocket import broadcast_dashboard_update
+        await broadcast_dashboard_update("user_update", {
+            "action": "create",
+            "user": {
+                "id": user.id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "role": user.role,
+                "status": user.status,
+                "last_login": user.last_login.isoformat() if user.last_login else None,
+                "created_at": user.created_at.isoformat() if user.created_at else None
+            }
+        })
+
         return UserResponse(**user.dict())
     except ValueError as e:
         raise HTTPException(
@@ -121,8 +138,8 @@ async def google_login():
     return {"auth_url": google_auth_url}
 
 @router.get("/google/callback")
-async def google_callback(code: str):
-    """Handle Google OAuth callback"""
+async def google_callback_get(code: str):
+    """Handle Google OAuth callback and redirect to frontend"""
     try:
         # Exchange code for access token
         token_data = {
@@ -161,19 +178,93 @@ async def google_callback(code: str):
         # Create or update user
         user = await UserService.create_or_update_google_user(user_data)
 
+        # Broadcast user registration via WebSocket for real-time admin dashboard updates (only for new users)
+        if user.created_at == user.updated_at:  # Assuming this indicates a new user
+            from routers.websocket import broadcast_dashboard_update
+            await broadcast_dashboard_update("user_update", {
+                "action": "create",
+                "user": {
+                    "id": user.id,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "email": user.email,
+                    "role": user.role,
+                    "status": user.status,
+                    "last_login": user.last_login.isoformat() if user.last_login else None,
+                    "created_at": user.created_at.isoformat() if user.created_at else None
+                }
+            })
+
         # Create access token
         access_token = create_access_token(data={"sub": user.id, "role": user.role.value})
 
-        # Return JSON response instead of redirect
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user": UserResponse(**user.dict()).dict()
+        # Create user response data
+        user_response_data = UserResponse(**user.dict()).dict()
+
+        # Store auth data in session/temporary storage and redirect
+        import uuid
+        session_id = str(uuid.uuid4())
+
+        # Store auth data temporarily (in a real app, use Redis/session store)
+        # For now, we'll use a simple in-memory dict (not production ready)
+        if not hasattr(google_callback_get, 'auth_sessions'):
+            google_callback_get.auth_sessions = {}
+
+        google_callback_get.auth_sessions[session_id] = {
+            'user': user_response_data,
+            'token': access_token,
+            'role': user.role.value,
+            'expires': datetime.utcnow().timestamp() + 300  # 5 minutes
         }
+
+        # Redirect to frontend with session ID
+        redirect_url = f"http://localhost:5173/auth/google/callback?session_id={session_id}"
+        logger.info(f"Redirecting to: {redirect_url}")
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=redirect_url, status_code=302)
 
     except Exception as e:
         logger.error(f"Google OAuth error: {e}")
+        logger.error(f"Error details: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+
+        # Redirect to frontend with error
+        error_redirect_url = "http://localhost:5173/auth?error=google_auth_failed"
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=error_redirect_url, status_code=302)
+
+@router.get("/google/session/{session_id}")
+async def get_google_auth_session(session_id: str):
+    """Get authentication data for a session"""
+    try:
+        # Check if session exists and hasn't expired
+        if not hasattr(google_callback_get, 'auth_sessions'):
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        session_data = google_callback_get.auth_sessions.get(session_id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Check if session has expired
+        if datetime.utcnow().timestamp() > session_data['expires']:
+            del google_callback_get.auth_sessions[session_id]
+            raise HTTPException(status_code=404, detail="Session expired")
+
+        # Clean up session after use
+        del google_callback_get.auth_sessions[session_id]
+
+        return {
+            "access_token": session_data['token'],
+            "token_type": "bearer",
+            "user": session_data['user']
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Session retrieval error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Google authentication failed"
+            detail="Failed to retrieve authentication data"
         )

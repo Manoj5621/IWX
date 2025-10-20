@@ -26,6 +26,8 @@ class UserCreate(BaseModel):
     first_name: Optional[str] = Field(None, min_length=1, max_length=50)
     last_name: Optional[str] = Field(None, min_length=1, max_length=50)
     password: Optional[str] = Field(None, min_length=6)
+    role: UserRole = UserRole.CUSTOMER
+    status: UserStatus = UserStatus.ACTIVE
     newsletter_subscription: Optional[bool] = True
     google_id: Optional[str] = None
 
