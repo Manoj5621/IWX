@@ -59,6 +59,11 @@
   --glass-bg: rgba(255, 255, 255, 0.25);
   --glass-border: rgba(255, 255, 255, 0.18);
   --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+
+  --success-color: #020504;
+  --error-color: #ef4444;
+  --warning-color: #f59e0b;
+  --accent-color: #6366f1;
 }
 
 /* Reset and Base Styles */
@@ -170,7 +175,7 @@ body {
   font-size: 24px;
   font-weight: var(--font-weight-semibold);
   letter-spacing: -0.5px;
-  background: var(--gradient-primary);
+  background: var(--primary-black);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -769,7 +774,7 @@ body {
 
 .activity-info span, .product-info span {
   font-size: 13px;
-  color: var(--medium-gray);
+  color: white;
 }
 
 .activity-details {
@@ -1688,6 +1693,35 @@ input:checked + .toggle-slider:before {
   transform: translateX(26px);
 }
 
+/* Missing utility classes for toggle and other components */
+.border-color {
+  border-color: #e5e7eb;
+}
+
+.shadow-light {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.shadow-medium {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.light-gray {
+  background-color: #f8fafc;
+}
+
+.success-color {
+  color: #10b981;
+}
+
+.warning-color {
+  color: #f59e0b;
+}
+
+.error-color {
+  color: #ef4444;
+}
+
 /* User Management - Enhanced */
 .users-grid {
   display: grid;
@@ -2072,4 +2106,67 @@ input:checked + .toggle-slider:before {
   .admin-main {
     padding: var(--spacing-xs);
   }
+}
+
+/* Solid Black Button */
+.logout-btn {
+    margin-top: 20px;
+    background-color: #000000;
+    color: white;
+    border: 2px solid #000000;
+    padding: 12px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: inherit;
+}
+
+.logout-btn:hover {
+    background-color: #333333;
+    border-color: #333333;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.logout-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Alternative Minimalist Version */
+.logout-btn-minimalist {
+    margin-top: 20px;
+    background-color: transparent;
+    color: #000000;
+    border: 2px solid #000000;
+    padding: 12px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: inherit;
+}
+
+.logout-btn-minimalist:hover {
+    background-color: #000000;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.logout-btn-minimalist:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }

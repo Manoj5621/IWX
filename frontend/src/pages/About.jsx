@@ -352,12 +352,12 @@ const About = () => {
           
           <div className="stores-grid">
             {[
-              { city: "New York", image: "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80" },
-              { city: "Paris", image: "https://images.unsplash.com/photo-1502602898536-47ad22581b52?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80" },
-              { city: "Tokyo", image: "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1794&q=80" },
-              { city: "Milan", image: "https://images.unsplash.com/photo-1552832230-c019704d62d3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80" },
-              { city: "London", image: "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80" },
-              { city: "Seoul", image: "https://images.unsplash.com/photo-1534274867514-d5b47ef89ed7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80" }
+              { city: "Mumbi", image: "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1770&q=80" },
+              { city: "Bangalore", image: "https://images.pexels.com/photos/4846221/pexels-photo-4846221.jpeg" },
+              { city: "Delhi", image: "https://images.pexels.com/photos/33813525/pexels-photo-33813525.jpeg" },
+              { city: "Hyderabad", image: "https://images.pexels.com/photos/13416375/pexels-photo-13416375.jpeg" },
+              { city: "Chenni", image: "https://images.pexels.com/photos/34366231/pexels-photo-34366231.jpeg" },
+              { city: "Goa", image: "https://images.pexels.com/photos/34322143/pexels-photo-34322143.jpeg" }
             ].map((store, index) => (
               <motion.div 
                 key={index}

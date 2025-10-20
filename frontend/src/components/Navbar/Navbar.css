@@ -53,7 +53,7 @@
 }
 
 .menu-button {
-  display: none;
+  display: none; /* This hides it by default */
   flex-direction: column;
   justify-content: space-between;
   width: 24px;
@@ -105,8 +105,26 @@
   letter-spacing: 1px;
   transition: opacity 0.3s ease;
   padding: 10px 0;
+  display: inline-block;
 }
 
+/* Ensure menu icon is hidden by default on larger screens */
+.menu-icon {
+  display: none;
+  cursor: pointer;
+  font-size: 24px;
+  padding: 10px;
+}
+
+@media (max-width: 1097px) {
+  .nav-link {
+    display: none;
+  }
+  
+  .menu-button {
+    display: flex; /* This shows the menu button at 1097px */
+  }
+}
 .nav-link:hover {
   opacity: 0.7;
 }
@@ -242,6 +260,16 @@
   overflow-y: auto;
 }
 
+.mobile-action-btn {
+  position: relative;
+}
+
+.mobile-action-btn .cart-count {
+  position: absolute;
+  top: -5px;
+  right: 0;
+}
+
 .close-menu-btn {
   position: absolute;
   top: 20px;
@@ -332,7 +360,7 @@
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (max-width: 1097px) {
   .menu-button{
     display: flex !important;
   }

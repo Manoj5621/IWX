@@ -1093,9 +1093,9 @@ input:checked + .slider:before {
 }
 
 .checkbox-label input:checked + .checkmark {
-  background: #000;
   border-color: #000;
 }
+
 
 .checkbox-label input:checked + .checkmark:after {
   content: '✓';

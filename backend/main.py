@@ -175,7 +175,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         }
     )
 
-if __name__ == "__main__":
+if __name__ == "_main_":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",

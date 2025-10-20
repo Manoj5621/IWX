@@ -578,6 +578,7 @@ ReturnRefund.css
   padding: 20px;
   display: flex;
   justify-content: space-between;
+  color: black;
   align-items: center;
   cursor: pointer;
   font-weight: 500;
