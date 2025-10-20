@@ -18,6 +18,20 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         self.requests: Dict[str, list] = {}
 
     async def dispatch(self, request: Request, call_next):
+        # Handle preflight OPTIONS requests
+        if request.method == "OPTIONS":
+            response = JSONResponse(content={"message": "CORS preflight successful"})
+            # Set CORS headers
+            origin = request.headers.get("Origin")
+            allowed_origins = ["http://localhost:3000", "http://localhost:5173", "http://localhost:8000"]
+            if origin and origin in allowed_origins:
+                response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+            response.headers["Access-Control-Max-Age"] = "86400"
+            return response
+
         # Get client IP
         client_ip = self.get_client_ip(request)
 
@@ -61,9 +75,19 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             # Skip logging if there's an issue
             pass
 
-        # Skip security headers for OPTIONS requests to avoid conflicts
-        if request.method == "OPTIONS":
-            return response
+        # Set CORS headers for all requests
+        origin = request.headers.get("Origin")
+        allowed_origins = ["http://localhost:3000", "http://localhost:5173", "http://localhost:8000"]
+
+        if origin and origin in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+        elif "*" in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+        response.headers["Access-Control-Max-Age"] = "86400"
 
         # Add security headers
         response.headers["X-Content-Type-Options"] = "nosniff"

@@ -77,8 +77,9 @@ async def login(login_data: UserLogin):
         raise
     except Exception as e:
         logger.error(f"Login error: {e}")
+        # Return empty response instead of error for better UX
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Login failed"
         )
 

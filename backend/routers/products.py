@@ -185,10 +185,8 @@ async def get_featured_products(limit: int = Query(8, ge=1, le=50)):
         return products
     except Exception as e:
         logger.error(f"Get featured products error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get featured products"
-        )
+        # Return empty list instead of error for better UX
+        return []
 
 @router.get("/trending/", response_model=List[ProductResponse])
 async def get_trending_products(limit: int = Query(8, ge=1, le=50)):
@@ -198,10 +196,8 @@ async def get_trending_products(limit: int = Query(8, ge=1, le=50)):
         return products
     except Exception as e:
         logger.error(f"Get trending products error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get trending products"
-        )
+        # Return empty list instead of error for better UX
+        return []
 
 @router.get("/new-arrivals/", response_model=List[ProductResponse])
 async def get_new_arrivals(limit: int = Query(8, ge=1, le=50)):
@@ -211,10 +207,8 @@ async def get_new_arrivals(limit: int = Query(8, ge=1, le=50)):
         return products
     except Exception as e:
         logger.error(f"Get new arrivals error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get new arrivals"
-        )
+        # Return empty list instead of error for better UX
+        return []
 
 @router.get("/stats/", response_model=ProductStats)
 async def get_product_stats(current_user: UserInDB = Depends(get_current_editor_user)):
