@@ -372,10 +372,11 @@ body {
 }
 
 .dot {
+  padding: 9.2px 9.2px;
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  border: none;
+  border-color: none;
   background: rgba(255, 255, 255, 0.5);
   cursor: pointer;
   transition: background 0.3s ease;
@@ -383,6 +384,8 @@ body {
 
 .dot.active {
   background: #fff;
+  border: none;
+  border-color: white;
 }
 
 /* Brand Story */

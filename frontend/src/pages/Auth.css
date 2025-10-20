@@ -546,3 +546,50 @@
     font-size: 28px;
   }
 }
+
+/* Password Toggle Eye Icon */
+.password-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgb(124, 114, 114);
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  color: #f0f0f0;
+}
+
+.password-toggle:hover {
+  opacity: 0.7;
+  color: #000000;
+}
+
+.eye-icon {
+  width: 20px;
+  height: 20px;
+  transition: all 0.3s ease;
+}
+
+.eye-icon.open {
+  opacity: 1;
+}
+
+.eye-icon.closed {
+  opacity: 0.7;
+}
+
+/* Adjust input padding to accommodate eye icon */
+.password-input-wrapper input {
+  padding-right: 45px !important;
+}

@@ -32,3 +32,4 @@ venv
 alembic/
 alembic.ini
 
+config.py

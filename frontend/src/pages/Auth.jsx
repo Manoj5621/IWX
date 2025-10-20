@@ -23,6 +23,35 @@ const Auth = () => {
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
 
+  // Add this effect for eye icon animation
+React.useEffect(() => {
+  const updateEyeIcons = () => {
+    document.querySelectorAll('.password-toggle').forEach(button => {
+      const input = button.closest('.password-input-wrapper').querySelector('input');
+      const closedEye = button.querySelector('.eye-icon.closed');
+      const openEye = button.querySelector('.eye-icon.open');
+      
+      if (input.type === 'password') {
+        closedEye.style.display = 'block';
+        openEye.style.display = 'none';
+      } else {
+        closedEye.style.display = 'none';
+        openEye.style.display = 'block';
+      }
+    });
+  };
+
+  // Update eye icons initially and on any click
+  updateEyeIcons();
+  document.addEventListener('click', updateEyeIcons);
+  
+  return () => {
+    document.removeEventListener('click', updateEyeIcons);
+  };
+}, []);
+
+
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
@@ -241,20 +270,44 @@ const Auth = () => {
                 </div>
 
                 <div className="input-group">
-                  <input
-                    type="password"
-                    name="password"
-                    placeholder="Password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    className={errors.password ? 'error' : ''}
-                  />
+                  <div className="password-input-wrapper">
+                    <input
+                      type="password"
+                      name="password"
+                      placeholder="Password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className={errors.password ? 'error' : ''}
+                    />
+                    <button 
+                      type="button" 
+                      className="password-toggle"
+                      onClick={() => {
+                        const input = document.querySelector('input[name="password"]');
+                        if (input.type === 'password') {
+                          input.type = 'text';
+                        } else {
+                          input.type = 'password';
+                        }
+                      }}
+                    >
+                      <svg className="eye-icon closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                      </svg>
+                      <svg className="eye-icon open" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{display: 'none'}}>
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                        <line x1="1" y1="1" x2="23" y2="23"/>
+                      </svg>
+                    </button>
+                  </div>
                   {errors.password && <span className="error-text">{errors.password}</span>}
                 </div>
 
                 {!isLogin && (
                   <>
-                    <div className="input-group">
+                  <div className="input-group">
+                    <div className="password-input-wrapper">
                       <input
                         type="password"
                         name="confirmPassword"
@@ -263,8 +316,30 @@ const Auth = () => {
                         onChange={handleInputChange}
                         className={errors.confirmPassword ? 'error' : ''}
                       />
-                      {errors.confirmPassword && <span className="error-text">{errors.confirmPassword}</span>}
+                      <button 
+                        type="button" 
+                        className="password-toggle"
+                        onClick={() => {
+                          const input = document.querySelector('input[name="confirmPassword"]');
+                          if (input.type === 'password') {
+                            input.type = 'text';
+                          } else {
+                            input.type = 'password';
+                          }
+                        }}
+                      >
+                        <svg className="eye-icon closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                          <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        <svg className="eye-icon open" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{display: 'none'}}>
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                          <line x1="1" y1="1" x2="23" y2="23"/>
+                        </svg>
+                      </button>
                     </div>
+                    {errors.confirmPassword && <span className="error-text">{errors.confirmPassword}</span>}
+                  </div>
 
                     <div className="checkbox-group">
                       <label className="checkbox-label">

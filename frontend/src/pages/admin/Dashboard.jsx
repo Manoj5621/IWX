@@ -2,9 +2,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { adminAPI } from '../../api/adminAPI';
-import Navbar from '../../components/Navbar/Navbar';
 import websocketService from '../../services/websocket';
 import './Dashboard.css';
+import { ChangePassword } from '../../components/Profile/SecurityComponents'; // Adjust path as needed
+import { useDispatch } from 'react-redux';
+import { logout } from '../../redux/slices/authSlice';
 
 const AdminDashboard = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -13,6 +15,13 @@ const AdminDashboard = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const sidebarRef = useRef(null);
+  const dispatch = useDispatch();
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const handleLogout = () => {
+  dispatch(logout());
+  };
+
+
   const [stats, setStats] = useState({
     totalSales: 0,
     totalOrders: 0,
@@ -113,6 +122,14 @@ const [systemStatus, setSystemStatus] = useState([
   { service: 'Payment Gateway', status: 'warning', uptime: '98.7%' },
   { service: 'Email Service', status: 'online', uptime: '99.5%' }
 ]);
+
+// Toggle functionality for settings
+const handleSettingChange = (settingKey) => {
+  setSettings(prev => ({
+    ...prev,
+    [settingKey]: !prev[settingKey]
+  }));
+};
 
   // Load dashboard data and set up real-time updates
   useEffect(() => {
@@ -324,8 +341,6 @@ const [systemStatus, setSystemStatus] = useState([
 
   return (
     <div className="admin-dashboard">
-      <Navbar />
-
       {/* Header */}
       <header className="admin-header">
         <div className="header-left">
@@ -475,6 +490,13 @@ const [systemStatus, setSystemStatus] = useState([
           >
             ⚙️ Settings
           </button>
+        {/* Logout Button */}
+        <button
+          className="logout-btn"
+          onClick={handleLogout}
+        >
+          🚪 Logout
+        </button>
         </nav>
 
         {/* Mobile Navigation - Only in sidebar */}
@@ -631,6 +653,16 @@ const [systemStatus, setSystemStatus] = useState([
             }}
           >
             ⚙️ Settings
+          </button>
+          {/* Logout Button */}
+          <button
+            className="logout-btn"
+            onClick={() => {
+              handleLogout();
+              setSidebarOpen(false);
+            }}
+          >
+            🚪 Logout
           </button>
         </nav>
       </aside>
@@ -1381,21 +1413,21 @@ const [systemStatus, setSystemStatus] = useState([
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '15px 0'}}>
           <span>Email Notifications</span>
           <label className="toggle-switch">
-            <input type="checkbox" checked={settings.emailNotifications} onChange={() => {}} />
+            <input type="checkbox" checked={settings.emailNotifications} onChange={() => handleSettingChange('emailNotifications')} />
             <span className="toggle-slider"></span>
           </label>
         </div>
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '15px 0'}}>
           <span>SMS Alerts</span>
           <label className="toggle-switch">
-            <input type="checkbox" checked={settings.smsAlerts} onChange={() => {}} />
+            <input type="checkbox" checked={settings.smsAlerts} onChange={() => handleSettingChange('smsAlerts')} />
             <span className="toggle-slider"></span>
           </label>
         </div>
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '15px 0'}}>
           <span>Auto Backup</span>
           <label className="toggle-switch">
-            <input type="checkbox" checked={settings.autoBackup} onChange={() => {}} />
+            <input type="checkbox" checked={settings.autoBackup} onChange={() => handleSettingChange('autoBackup')} />
             <span className="toggle-slider"></span>
           </label>
         </div>
@@ -1406,18 +1438,22 @@ const [systemStatus, setSystemStatus] = useState([
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '15px 0'}}>
           <span>Two-Factor Authentication</span>
           <label className="toggle-switch">
-            <input type="checkbox" checked={settings.twoFactorAuth} onChange={() => {}} />
+            <input type="checkbox" checked={settings.twoFactorAuth} onChange={() => handleSettingChange('twoFactorAuth')} />
             <span className="toggle-slider"></span>
           </label>
         </div>
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '15px 0'}}>
           <span>Dark Mode</span>
           <label className="toggle-switch">
-            <input type="checkbox" checked={settings.darkMode} onChange={() => {}} />
+            <input type="checkbox" checked={settings.darkMode} onChange={() => handleSettingChange('darkMode')} />
             <span className="toggle-slider"></span>
           </label>
         </div>
-        <button className="primary-btn" style={{width: '100%', marginTop: '20px'}}>
+        <button 
+          className="primary-btn" 
+          style={{width: '100%', marginTop: '20px'}}
+          onClick={() => setIsChangePasswordOpen(true)}
+        >
           Change Password
         </button>
       </div>
@@ -1904,8 +1940,16 @@ const [systemStatus, setSystemStatus] = useState([
         )}
         </AnimatePresence>
       </main>
+      <ChangePassword 
+        isOpen={isChangePasswordOpen} 
+        onClose={() => setIsChangePasswordOpen(false)} 
+      />
+
+
+      
     </div>
   );
 };
+
 
 export default AdminDashboard;
