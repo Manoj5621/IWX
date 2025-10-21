@@ -143,7 +143,7 @@ async def list_products(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     sort_by: str = "created_at",
-    sort_order: int = Query(-1, regex="^(1|-1)$")
+    sort_order: str = Query("-1", regex="^(1|-1)$")
 ):
     """List products with filters and pagination"""
     try:

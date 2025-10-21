@@ -470,7 +470,7 @@ const handleSettingChange = (settingKey) => {
                 selectedSort === 'priceHighLow' ? 'price' :
                 selectedSort === 'newest' ? 'created_at' :
                 selectedSort === 'rating' ? 'rating' : 'created_at',
-        sort_order: selectedSort === 'priceHighLow' ? -1 : -1
+        sort_order: selectedSort === 'priceHighLow' ? '1' : '-1'
       };
 
       const response = await adminAPI.getProducts(filters);

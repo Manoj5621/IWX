@@ -64,7 +64,7 @@ const ProductListing = () => {
                 selectedSort === 'priceHighLow' ? 'price' :
                 selectedSort === 'newest' ? 'created_at' :
                 selectedSort === 'rating' ? 'rating' : 'created_at',
-        sort_order: selectedSort === 'priceHighLow' ? -1 : -1
+        sort_order: selectedSort === 'priceHighLow' ? '1' : '-1'
       };
 
       const response = await productAPI.getProducts(filters);
@@ -75,49 +75,15 @@ const ProductListing = () => {
       setHasPrev(response.has_prev);
     } catch (error) {
       console.error('Failed to load products:', error);
-      // Fallback to mock data
-      const mockProducts = generateMockProducts();
-      setProducts(mockProducts);
-      setFilteredProducts(mockProducts);
-      setTotalProducts(mockProducts.length);
+      // No fallback to mock data - show empty state
+      setProducts([]);
+      setFilteredProducts([]);
+      setTotalProducts(0);
     } finally {
       setLoading(false);
     }
   };
 
-  const generateMockProducts = () => {
-    const categories = ['Woman', 'Man', 'Kids', 'Accessories'];
-    const sizes = ['XS', 'S', 'M', 'L', 'XL'];
-    const colors = ['Black', 'White', 'Navy', 'Beige', 'Green', 'Red', 'Yellow', 'Gray'];
-
-    return Array.from({ length: 48 }, (_, i) => {
-      const category = categories[Math.floor(Math.random() * categories.length)];
-      const isNew = Math.random() > 0.7;
-      const isSustainable = Math.random() > 0.8;
-      const isTrending = Math.random() > 0.6;
-      const onSale = Math.random() > 0.9;
-
-      const originalPrice = Math.floor(Math.random() * 100) + 30;
-      const salePrice = onSale ? Math.floor(originalPrice * 0.7) : null;
-
-      return {
-        id: i + 1,
-        name: `${category} Product ${i + 1}`,
-        category,
-        price: originalPrice,
-        salePrice,
-        image: `https://images.unsplash.com/photo-15${i % 9}3456789-abcde${i % 9}fghijk?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80`,
-        sizes: sizes.slice(0, Math.floor(Math.random() * 3) + 2),
-        color: colors[Math.floor(Math.random() * colors.length)],
-        isNew,
-        isSustainable,
-        isTrending,
-        onSale,
-        rating: (Math.random() * 5).toFixed(1),
-        reviewCount: Math.floor(Math.random() * 100)
-      };
-    });
-  };
 
   // Remove client-side filtering since we're doing it server-side
 
@@ -417,16 +383,22 @@ const ProductListing = () => {
                       whileHover={{ y: -5 }}
                     >
                       <div className="product-image">
-                        <img src={product.image} alt={product.name} />
+                        <img
+                          src={product.images && product.images.length > 0 ? product.images[0] : '/placeholder.png'}
+                          alt={product.name}
+                          onError={(e) => {
+                            e.target.src = '/placeholder.png';
+                          }}
+                        />
                         <button className="wishlist-btn">♥</button>
                         
-                        {product.onSale && (
+                        {product.sale_price && (
                           <span className="sale-badge">SALE</span>
                         )}
-                        {product.isNew && (
-                          <span className="new-badge">NEW</span>
+                        {product.status === 'draft' && (
+                          <span className="new-badge">DRAFT</span>
                         )}
-                        {product.isSustainable && (
+                        {product.is_sustainable && (
                           <span className="eco-badge">ECO</span>
                         )}
                         
@@ -438,16 +410,16 @@ const ProductListing = () => {
                       
                       <div className="product-info">
                         <div className="product-meta">
-                          {product.isTrending && (
+                          {product.is_trending && (
                             <span className="trending">Trending</span>
                           )}
                           <span className="product-name">{product.name}</span>
                         </div>
                         
                         <div className="product-price">
-                          {product.onSale ? (
+                          {product.sale_price ? (
                             <>
-                              <span className="sale-price">${product.salePrice}</span>
+                              <span className="sale-price">${product.sale_price}</span>
                               <span className="original-price">${product.price}</span>
                             </>
                           ) : (
@@ -456,13 +428,13 @@ const ProductListing = () => {
                         </div>
                         
                         <div className="product-colors">
-                          <span className="color-dot" style={{ backgroundColor: product.color.toLowerCase() }}></span>
-                          <span>+{Math.floor(Math.random() * 5) + 1} colors</span>
+                          <span className="color-dot" style={{ backgroundColor: product.colors && product.colors.length > 0 ? product.colors[0].toLowerCase() : '#000' }}></span>
+                          <span>+{product.colors ? product.colors.length : 0} colors</span>
                         </div>
                         
                         <div className="product-rating">
-                          {renderStars(product.rating)}
-                          <span>({product.reviewCount})</span>
+                          {renderStars(product.rating || 0)}
+                          <span>({product.review_count || 0})</span>
                         </div>
                       </div>
                     </motion.div>
@@ -532,10 +504,16 @@ const ProductListing = () => {
           <div className="viewed-products">
             {products.slice(0, 5).map(product => (
               <div key={`recent-${product.id}`} className="viewed-product">
-                <img src={product.image} alt={product.name} />
+                <img
+                  src={product.images && product.images.length > 0 ? product.images[0] : '/placeholder.png'}
+                  alt={product.name}
+                  onError={(e) => {
+                    e.target.src = '/placeholder.png';
+                  }}
+                />
                 <div>
                   <p>{product.name}</p>
-                  <span>${product.onSale ? product.salePrice : product.price}</span>
+                  <span>${product.sale_price ? product.sale_price : product.price}</span>
                 </div>
               </div>
             ))}
