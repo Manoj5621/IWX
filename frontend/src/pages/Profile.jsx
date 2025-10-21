@@ -532,6 +532,7 @@ const Profile = () => {
           <div className="profile-nav">
             {[
               { id: 'profile', label: 'Profile', icon: '👤' },
+              ...(user?.role === 'admin' ? [{ id: 'dashboard', label: 'Dashboard', icon: '📊', isAdmin: true }] : []),
               { id: 'orders', label: 'Orders', icon: '📦' },
               { id: 'addresses', label: 'Addresses', icon: '🏠' },
               { id: 'payments', label: 'Payments', icon: '💳' },
@@ -542,7 +543,7 @@ const Profile = () => {
               <button
                 key={item.id}
                 className={activeTab === item.id ? 'active' : ''}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => item.isAdmin ? window.location.href = '/adminDashboard' : setActiveTab(item.id)}
               >
                 <span>{item.icon}</span>
                 {item.label}

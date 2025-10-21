@@ -25,6 +25,7 @@ async def get_current_user(
     payload = verify_token(token)
 
     if not payload:
+        logger.info("Token verification failed - token may be expired or invalid")
         return None
 
     user_id = payload.get("sub")

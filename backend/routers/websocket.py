@@ -104,6 +104,12 @@ async def dashboard_websocket(websocket: WebSocket):
 
     except WebSocketDisconnect:
         manager.disconnect(websocket, "dashboard")
+    except Exception as e:
+        logger.error(f"Dashboard WebSocket error: {e}")
+        try:
+            await websocket.close(code=1011, reason="Internal server error")
+        except:
+            pass
 
 @router.websocket("/products")
 async def products_websocket(websocket: WebSocket):

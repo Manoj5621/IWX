@@ -73,10 +73,27 @@
   margin: 0 20px;
   opacity: 0.5;
   transition: opacity 0.3s;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
 }
 
-.step.active {
+.step:hover {
+  opacity: 0.8;
+}
+
+.step.completed {
   opacity: 1;
+}
+
+.step.current {
+  opacity: 1;
+}
+
+.step:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
 }
 
 .step-number {
@@ -94,7 +111,7 @@
 }
 
 .step.active .step-number {
-  background: #2196f3;
+  background: #000000;
   color: white;
 }
 
@@ -141,8 +158,8 @@
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #2196f3;
-  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+  border-color: #000000;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
 }
 
 .form-group textarea {
@@ -190,8 +207,8 @@
 
 .upload-btn:hover {
   background: #f0f0f0;
-  border-color: #2196f3;
-  color: #2196f3;
+  border-color: #000000;
+  color: #000000;
 }
 
 .upload-info {
@@ -283,12 +300,12 @@
 }
 
 .primary-btn {
-  background: #2196f3;
+  background: #000000;
   color: white;
 }
 
 .primary-btn:hover:not(:disabled) {
-  background: #1976d2;
+  background: #333333;
 }
 
 .primary-btn:disabled {

@@ -3,9 +3,11 @@ from typing import Optional, List
 from models.user import UserResponse, UserUpdate, UserStats, UserCreate
 from models.product import ProductStats
 from models.order import OrderStats
+from models.security import SecurityStats, LoginHistory, SecurityEvent, DeviceInfo
 from services.user_service import UserService
 from services.product_service import ProductService
 from services.order_service import OrderService
+from services.security_service import SecurityService
 from auth.dependencies import get_current_admin_user
 from models.user import UserInDB, UserRole, UserStatus
 import logging
@@ -54,7 +56,7 @@ async def create_user(
 @router.get("/users", response_model=List[UserResponse])
 async def list_users(
     role: Optional[UserRole] = None,
-    status: Optional[UserStatus] = None,
+    user_status: Optional[UserStatus] = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     current_user: UserInDB = Depends(get_current_admin_user)
@@ -65,7 +67,7 @@ async def list_users(
             skip=skip,
             limit=limit,
             role=role,
-            status=status
+            status=user_status
         )
         return users
     except Exception as e:
@@ -243,4 +245,200 @@ async def get_dashboard_stats(current_user: UserInDB = Depends(get_current_admin
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get dashboard statistics"
+        )
+
+@router.get("/security/stats", response_model=SecurityStats)
+async def get_admin_security_stats(current_user: UserInDB = Depends(get_current_admin_user)):
+    """Get global security statistics (Admin only)"""
+    try:
+        security_service = SecurityService()
+        # Get stats for all users (admin view)
+        all_users = await UserService.list_users(limit=1000)  # Get all users
+        total_stats = SecurityStats(
+            total_login_attempts=0,
+            successful_logins=0,
+            failed_logins=0,
+            suspicious_activities=0,
+            active_sessions=0,
+            trusted_devices=0
+        )
+
+        for user in all_users:
+            user_stats = await security_service.get_security_stats(user.id)
+            total_stats.total_login_attempts += user_stats.total_login_attempts
+            total_stats.successful_logins += user_stats.successful_logins
+            total_stats.failed_logins += user_stats.failed_logins
+            total_stats.suspicious_activities += user_stats.suspicious_activities
+            total_stats.active_sessions += user_stats.active_sessions
+            total_stats.trusted_devices += user_stats.trusted_devices
+
+        return total_stats
+    except Exception as e:
+        logger.error(f"Get admin security stats error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get security statistics"
+        )
+
+@router.get("/security/login-history", response_model=List[LoginHistory])
+async def get_admin_login_history(
+    user_id: Optional[str] = None,
+    limit: int = Query(100, ge=1, le=1000),
+    current_user: UserInDB = Depends(get_current_admin_user)
+):
+    """Get login history for all users or specific user (Admin only)"""
+    try:
+        security_service = SecurityService()
+        if user_id:
+            # Get history for specific user
+            return await security_service.get_login_history(user_id, limit)
+        else:
+            # Get history for all users (aggregate)
+            all_users = await UserService.list_users(limit=1000)
+            all_history = []
+            for user in all_users:
+                user_history = await security_service.get_login_history(user.id, min(limit // len(all_users) + 1, 50))
+                all_history.extend(user_history)
+
+            # Sort by timestamp descending and limit
+            all_history.sort(key=lambda x: x.timestamp, reverse=True)
+            return all_history[:limit]
+    except Exception as e:
+        logger.error(f"Get admin login history error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get login history"
+        )
+
+@router.get("/security/events", response_model=List[SecurityEvent])
+async def get_admin_security_events(
+    user_id: Optional[str] = None,
+    event_type: Optional[str] = None,
+    limit: int = Query(100, ge=1, le=1000),
+    current_user: UserInDB = Depends(get_current_admin_user)
+):
+    """Get security events for all users or specific user (Admin only)"""
+    try:
+        security_service = SecurityService()
+        # This would need to be implemented in SecurityService for admin view
+        # For now, return events for specific user or empty list
+        if user_id:
+            # Get events from security_events collection filtered by user_id
+            db = security_service.db
+            query = {"user_id": user_id}
+            if event_type:
+                query["event_type"] = event_type
+
+            cursor = db.security_events.find(query).sort("timestamp", -1).limit(limit)
+            events = []
+            async for event in cursor:
+                event["id"] = str(event["_id"])
+                events.append(SecurityEvent(**event))
+            return events
+        else:
+            # Get all events (admin view)
+            db = security_service.db
+            query = {}
+            if event_type:
+                query["event_type"] = event_type
+
+            cursor = db.security_events.find(query).sort("timestamp", -1).limit(limit)
+            events = []
+            async for event in cursor:
+                event["id"] = str(event["_id"])
+                events.append(SecurityEvent(**event))
+            return events
+    except Exception as e:
+        logger.error(f"Get admin security events error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get security events"
+        )
+
+@router.get("/security/devices", response_model=List[DeviceInfo])
+async def get_admin_connected_devices(
+    user_id: Optional[str] = None,
+    current_user: UserInDB = Depends(get_current_admin_user)
+):
+    """Get connected devices for all users or specific user (Admin only)"""
+    try:
+        security_service = SecurityService()
+        if user_id:
+            return await security_service.get_connected_devices(user_id)
+        else:
+            # Get devices for all users
+            all_users = await UserService.list_users(limit=1000)
+            all_devices = []
+            for user in all_users:
+                user_devices = await security_service.get_connected_devices(user.id)
+                all_devices.extend(user_devices)
+            return all_devices
+    except Exception as e:
+        logger.error(f"Get admin connected devices error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get connected devices"
+        )
+
+@router.post("/security/scan")
+async def run_security_scan(current_user: UserInDB = Depends(get_current_admin_user)):
+    """Run a comprehensive security scan (Admin only)"""
+    try:
+        security_service = SecurityService()
+        user_service = UserService()
+
+        # Get all users
+        all_users = await UserService.list_users(limit=1000)
+
+        scan_results = {
+            "total_users": len(all_users),
+            "users_with_2fa": 0,
+            "users_without_password": 0,
+            "failed_login_attempts": 0,
+            "suspicious_activities": 0,
+            "untrusted_devices": 0,
+            "weak_passwords": 0,  # Would need password strength checking
+            "inactive_accounts": 0,
+            "scan_timestamp": datetime.utcnow().isoformat()
+        }
+
+        for user in all_users:
+            # Get security settings
+            try:
+                settings = await security_service.get_security_settings(user.id)
+                if settings.two_factor_enabled:
+                    scan_results["users_with_2fa"] += 1
+
+                if not user.hashed_password:
+                    scan_results["users_without_password"] += 1
+
+                if settings.failed_login_attempts > 0:
+                    scan_results["failed_login_attempts"] += settings.failed_login_attempts
+
+                if user.status == "inactive":
+                    scan_results["inactive_accounts"] += 1
+            except:
+                pass
+
+            # Get security stats
+            try:
+                stats = await security_service.get_security_stats(user.id)
+                scan_results["suspicious_activities"] += stats.suspicious_activities
+
+                # Get devices
+                devices = await security_service.get_connected_devices(user.id)
+                untrusted_count = sum(1 for d in devices if not d.is_trusted)
+                scan_results["untrusted_devices"] += untrusted_count
+            except:
+                pass
+
+        return {
+            "message": "Security scan completed",
+            "results": scan_results
+        }
+    except Exception as e:
+        logger.error(f"Run security scan error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to run security scan"
         )

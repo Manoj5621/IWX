@@ -209,18 +209,33 @@ const AddProductForm = ({ onClose, onSuccess }) => {
     }
   };
 
-  const renderStepIndicator = () => (
-    <div className="step-indicator">
-      {[1, 2, 3].map(step => (
-        <div key={step} className={`step ${currentStep >= step ? 'active' : ''}`}>
-          <span className="step-number">{step}</span>
-          <span className="step-label">
-            {step === 1 ? 'Media' : step === 2 ? 'Basic Info' : 'Inventory'}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
+  const renderStepIndicator = () => {
+    const steps = [1, 2, 3];
+
+    return (
+      <div className="step-indicator">
+        {steps.map(step => {
+          const isCompleted = currentStep > step;
+          const isCurrent = currentStep === step;
+          const isAccessible = step === 1 || (step > 1 && currentStep >= step);
+
+          return (
+            <button
+              key={step}
+              className={`step ${isCompleted ? 'completed' : ''} ${isCurrent ? 'current' : ''}`}
+              onClick={() => isAccessible && setCurrentStep(step)}
+              disabled={!isAccessible}
+            >
+              <span className="step-number">{step}</span>
+              <span className="step-label">
+                {step === 1 ? 'Media' : step === 2 ? 'Basic Info' : 'Inventory'}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
 
   const renderBasicInfo = () => (
     <motion.div

@@ -21,9 +21,12 @@ def get_password_hash(password: str) -> str:
     safe_password = password.encode('utf-8')[:72].decode('utf-8', errors='ignore')
     return pwd_context.hash(safe_password)
 
-def create_access_token(data: dict):
+def create_access_token(data: dict, remember_me: bool = False):
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+    if remember_me:
+        expire = datetime.utcnow() + timedelta(days=30)  # 30 days for remember me
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt

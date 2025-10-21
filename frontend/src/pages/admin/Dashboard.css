@@ -408,7 +408,6 @@ body {
 .nav-item.active {
   background: linear-gradient(135deg, var(--primary-black), var(--dark-gray));
   color: var(--white);
-  border-left-color: var(--accent-color);
   font-weight: var(--font-weight-medium);
   transform: translateX(8px);
   box-shadow: var(--shadow-medium);
@@ -435,10 +434,6 @@ body {
   width: 4px;
 }
 
-.nav-item.active::before {
-  width: 6px;
-  background: var(--accent-color);
-}
 
 /* Main Content Styles - Full Width on mobile, with sidebar margin on large screens */
 .admin-main {

@@ -56,7 +56,7 @@ async def get_order(
             )
 
         # Users can only see their own orders, admins can see all
-        if order.user_id != current_user.id and current_user.role.value not in ["admin", "editor"]:
+        if order.user_id != current_user.id and current_user.role not in ["admin", "editor"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to view this order"
@@ -87,7 +87,7 @@ async def get_order_by_number(
             )
 
         # Users can only see their own orders, admins can see all
-        if order.user_id != current_user.id and current_user.role.value not in ["admin", "editor"]:
+        if order.user_id != current_user.id and current_user.role not in ["admin", "editor"]:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to view this order"
@@ -138,7 +138,7 @@ async def list_orders(
     """List orders with filters"""
     try:
         # Regular users can only see their own orders
-        if current_user.role.value not in ["admin", "editor"]:
+        if current_user.role not in ["admin", "editor"]:
             user_id = current_user.id
 
         result = await OrderService.list_orders(

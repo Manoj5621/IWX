@@ -31,7 +31,8 @@ function AppContent() {
   const dispatch = useDispatch();
   const isAuthenticated = useSelector(state => state.auth.isAuthenticated)
   const loading = useSelector(state => state.auth.loading)
-  const { backendStatus, frontendStatus, retryChecks } = useServerStatus()
+  const { backendStatus, frontendStatus, retryChecks, checkBackendServices } = useServerStatus()
+  const location = useLocation();
 
   useEffect(() => {
     const initAuth = async () => {
@@ -61,19 +62,31 @@ function AppContent() {
 
       if (token) {
         try {
+          // Check if remember me was used for this session
+          const rememberMe = localStorage.getItem('rememberMe') === 'true';
+
+          // For non-remember me sessions, we still validate the token
+          // but the backend will handle expiration
           const user = await authAPI.getCurrentUser();
           if (user) {
             const userRole = user.role || 'user';
             localStorage.setItem('userRole', userRole);
-            dispatch(loginSuccess({ user, token }));
+            dispatch(loginSuccess({ user, token, rememberMe }));
           } else {
             throw new Error('Failed to get user data');
           }
         } catch (error) {
           console.error('Auth initialization error:', error);
-          dispatch(loginFailure(error.message));
-          localStorage.removeItem('token');
-          localStorage.removeItem('userRole');
+          // Check if it's a token expiration error (401)
+          if (error.response?.status === 401) {
+            console.log('Token expired, clearing authentication data');
+            localStorage.removeItem('token');
+            localStorage.removeItem('userRole');
+            localStorage.removeItem('rememberMe');
+            dispatch(loginFailure('Session expired'));
+          } else {
+            dispatch(loginFailure(error.message));
+          }
         }
       } else {
         dispatch(setLoading(false));
@@ -86,8 +99,8 @@ function AppContent() {
     return <div>Loading...</div>
   }
 
-  // Show backend down page if backend is offline
-  if (backendStatus === 'offline') {
+  // Allow access to status page even when backend is offline
+  if (backendStatus === 'offline' && location.pathname !== '/status') {
     return <BackendServerDown onRetry={retryChecks} />
   }
 

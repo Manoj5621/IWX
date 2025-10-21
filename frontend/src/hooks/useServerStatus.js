@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || '/api';
-
 export const useServerStatus = () => {
   const [backendStatus, setBackendStatus] = useState('checking');
   const [frontendStatus, setFrontendStatus] = useState('online');
@@ -16,11 +14,8 @@ export const useServerStatus = () => {
     const previousStatus = backendStatus;
 
     try {
-      const response = await axios.get(`${API_BASE_URL}/health`, {
-        timeout: 5000,
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
+      const response = await axios.get('http://localhost:8000/health', {
+        timeout: 5000
       });
 
       if (response.status === 200 && response.data.status === 'healthy') {
@@ -33,10 +28,11 @@ export const useServerStatus = () => {
           setStoredPath(null); // Clear stored path after redirect
         }
       } else {
+        console.log('Backend response not healthy, setting status to offline');
         setBackendStatus('offline');
       }
     } catch (error) {
-      console.log('Backend health check failed:', error.message);
+      console.log('Backend health check failed:', error.message, error.response?.status);
       setBackendStatus('offline');
 
       // Store current path if backend goes offline and we're not already on status page
@@ -46,6 +42,39 @@ export const useServerStatus = () => {
       }
     }
     setLastChecked(new Date());
+  };
+
+  const checkBackendServices = async () => {
+    try {
+      console.log('Checking backend services...');
+      const services = [
+        { name: 'Users API', url: 'http://localhost:8000/admin/users?limit=1' },
+        { name: 'Security Stats', url: 'http://localhost:8000/admin/security/stats' },
+        { name: 'Login History', url: 'http://localhost:8000/admin/security/login-history?limit=1' }
+      ];
+
+      const results = {};
+      for (const service of services) {
+        try {
+          const response = await axios.get(service.url, {
+            timeout: 5000,
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          results[service.name] = response.status === 200 ? 'online' : 'error';
+        } catch (error) {
+          results[service.name] = 'offline';
+          console.log(`${service.name} check failed:`, error.message);
+        }
+      }
+
+      console.log('Backend services status:', results);
+      return results;
+    } catch (error) {
+      console.error('Failed to check backend services:', error);
+      return null;
+    }
   };
 
   const checkFrontendStatus = () => {
@@ -110,6 +139,7 @@ export const useServerStatus = () => {
     frontendStatus,
     lastChecked,
     retryChecks,
-    storedPath
+    storedPath,
+    checkBackendServices
   };
 };

@@ -35,8 +35,8 @@ class UserService:
             "last_name": user_data.last_name or "",
             "hashed_password": get_password_hash(user_data.password) if user_data.password else None,
             "google_id": user_data.google_id,
-            "role": str(user_data.role) if hasattr(user_data, 'role') and user_data.role is not None else str(UserRole.CUSTOMER),
-            "status": str(user_data.status) if hasattr(user_data, 'status') and user_data.status is not None else str(UserStatus.ACTIVE),
+            "role": str(user_data.role.value) if hasattr(user_data, 'role') and user_data.role is not None else str(UserRole.CUSTOMER.value),
+            "status": str(user_data.status.value) if hasattr(user_data, 'status') and user_data.status is not None else str(UserStatus.ACTIVE.value),
             "created_at": now,
             "updated_at": now,
             "last_login": None,
@@ -213,9 +213,9 @@ class UserService:
         query = {}
 
         if role:
-            query["role"] = role
+            query["role"] = str(role.value) if hasattr(role, 'value') else str(role)
         if status:
-            query["status"] = status
+            query["status"] = str(status.value) if hasattr(status, 'value') else str(status)
 
         cursor = MongoDB.get_collection(USERS_COLLECTION).find(query).skip(skip).limit(limit)
 

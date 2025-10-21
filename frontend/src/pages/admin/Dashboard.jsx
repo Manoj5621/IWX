@@ -7,6 +7,7 @@ import './Dashboard.css';
 import { ChangePassword } from '../../components/Profile/SecurityComponents'; // Adjust path as needed
 import { useDispatch } from 'react-redux';
 import { logout } from '../../redux/slices/authSlice';
+import AddProductForm from '../../components/AddProductForm';
 
 const AdminDashboard = () => {
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -17,6 +18,21 @@ const AdminDashboard = () => {
   const sidebarRef = useRef(null);
   const dispatch = useDispatch();
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [securityStats, setSecurityStats] = useState({
+    total_login_attempts: 0,
+    successful_logins: 0,
+    failed_logins: 0,
+    suspicious_activities: 0,
+    active_sessions: 0,
+    trusted_devices: 0
+  });
+  const [securityEvents, setSecurityEvents] = useState([]);
+  const [loginHistory, setLoginHistory] = useState([]);
+  const [connectedDevices, setConnectedDevices] = useState([]);
+  const [securityTab, setSecurityTab] = useState('events');
+  const [loadingSecurity, setLoadingSecurity] = useState(false);
+
   const handleLogout = () => {
   dispatch(logout());
   };
@@ -139,25 +155,29 @@ const handleSettingChange = (settingKey) => {
   useEffect(() => {
     loadDashboardData();
     loadUsersData();
+    loadSecurityData();
 
     // Connect to WebSocket for real-time updates
-    const wsConnection = websocketService.connect('dashboard',
-      (data) => {
-        // Handle real-time updates
-        if (data.type === 'stats_update') {
-          setStats(prev => ({ ...prev, ...data.data }));
-        } else if (data.type === 'user_update') {
-          // Handle user updates (create, update, delete)
-          handleUserUpdate(data.data);
-        }
-      },
-      (error) => console.error('WebSocket error:', error),
-      () => console.log('WebSocket disconnected')
-    );
+    const token = localStorage.getItem('token');
+    if (token) {
+      const wsConnection = websocketService.connect('dashboard',
+        (data) => {
+          // Handle real-time updates
+          if (data.type === 'stats_update') {
+            setStats(prev => ({ ...prev, ...data.data }));
+          } else if (data.type === 'user_update') {
+            // Handle user updates (create, update, delete)
+            handleUserUpdate(data.data);
+          }
+        },
+        (error) => console.error('WebSocket error:', error),
+        () => console.log('WebSocket disconnected')
+      );
 
-    return () => {
-      websocketService.disconnect('dashboard');
-    };
+      return () => {
+        websocketService.disconnect('dashboard');
+      };
+    }
   }, []);
 
   const loadDashboardData = async () => {
@@ -174,7 +194,8 @@ const handleSettingChange = (settingKey) => {
       });
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
-      // Keep existing mock data as fallback
+      // Show error message to user instead of keeping mock data
+      alert('Failed to load dashboard data. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -201,8 +222,46 @@ const handleSettingChange = (settingKey) => {
       })));
     } catch (error) {
       console.error('Failed to load users data:', error);
+      alert('Failed to load users data. Please check your connection and try again.');
     } finally {
       setLoadingUsers(false);
+    }
+  };
+
+  const loadSecurityData = async () => {
+    try {
+      setLoadingSecurity(true);
+      const [stats, events, history, devices] = await Promise.all([
+        adminAPI.getSecurityStats(),
+        adminAPI.getSecurityEvents(null, null, 50),
+        adminAPI.getLoginHistory(null, 50),
+        adminAPI.getConnectedDevices()
+      ]);
+
+      setSecurityStats(stats);
+      setSecurityEvents(events);
+      setLoginHistory(history);
+      setConnectedDevices(devices);
+    } catch (error) {
+      console.error('Failed to load security data:', error);
+      alert('Failed to load security data. Please check your connection and try again.');
+    } finally {
+      setLoadingSecurity(false);
+    }
+  };
+
+  const handleRunSecurityScan = async () => {
+    try {
+      setLoadingSecurity(true);
+      const result = await adminAPI.runSecurityScan();
+      alert(`Security scan completed!\n\n${JSON.stringify(result.results, null, 2)}`);
+      // Reload security data after scan
+      await loadSecurityData();
+    } catch (error) {
+      console.error('Failed to run security scan:', error);
+      alert(`Failed to run security scan: ${error.response?.data?.detail || error.message}`);
+    } finally {
+      setLoadingSecurity(false);
     }
   };
 
@@ -257,7 +316,7 @@ const handleSettingChange = (settingKey) => {
         setUsers(prev => prev.filter(user => user.id !== userId));
       } catch (error) {
         console.error('Failed to delete user:', error);
-        alert('Failed to delete user');
+        alert(`Failed to delete user: ${error.response?.data?.detail || error.message}`);
       }
     }
   };
@@ -300,7 +359,7 @@ const handleSettingChange = (settingKey) => {
       });
     } catch (error) {
       console.error('Failed to save user:', error);
-      alert('Failed to save user');
+      alert(`Failed to save user: ${error.response?.data?.detail || error.message}`);
     }
   };
 
@@ -1270,7 +1329,7 @@ const handleSettingChange = (settingKey) => {
             >
               <div className="section-header">
                 <h2>Product Management</h2>
-                <button className="primary-btn">+ Add New Product</button>
+                <button className="primary-btn" onClick={() => setIsAddProductOpen(true)}>+ Add New Product</button>
               </div>
               <p>Product management content goes here...</p>
             </motion.section>
@@ -1873,53 +1932,147 @@ const handleSettingChange = (settingKey) => {
         >
             <div className="section-header">
             <h2>Security Center</h2>
-            <button className="primary-btn">Run Security Scan</button>
+            <button className="primary-btn" onClick={handleRunSecurityScan}>Run Security Scan</button>
             </div>
 
             <div className="security-grid">
             <div className="security-card">
                 <h4>Login Attempts</h4>
-                <div className="security-metric">1,247</div>
-                <p>Successful logins today</p>
+                <div className="security-metric">{securityStats.total_login_attempts?.toLocaleString() || '0'}</div>
+                <p>Total login attempts</p>
                 <div className="security-status safe">All Clear</div>
             </div>
             <div className="security-card">
                 <h4>Failed Attempts</h4>
-                <div className="security-metric">3</div>
-                <p>Blocked suspicious attempts</p>
-                <div className="security-status warning">Monitor</div>
+                <div className="security-metric">{securityStats.failed_logins || 0}</div>
+                <p>Failed login attempts</p>
+                <div className={`security-status ${securityStats.failed_logins > 10 ? 'warning' : 'safe'}`}>
+                  {securityStats.failed_logins > 10 ? 'Monitor' : 'Normal'}
+                </div>
             </div>
             <div className="security-card">
                 <h4>Active Sessions</h4>
-                <div className="security-metric">24</div>
+                <div className="security-metric">{securityStats.active_sessions || 0}</div>
                 <p>Current active sessions</p>
                 <div className="security-status safe">Normal</div>
             </div>
             <div className="security-card">
                 <h4>Security Score</h4>
-                <div className="security-metric">98%</div>
+                <div className="security-metric">
+                  {securityStats.total_login_attempts > 0 ?
+                    Math.round((securityStats.successful_logins / securityStats.total_login_attempts) * 100) : 100}%
+                </div>
                 <p>Overall security rating</p>
                 <div className="security-status excellent">Excellent</div>
             </div>
             </div>
 
-            <div className="recent-activity">
-            <h3>Recent Security Events</h3>
-            <div className="activity-list">
-                <div className="activity-item">
-                <span className="activity-time">10:30 AM</span>
-                <span>Password changed for admin@iwx.com</span>
-                </div>
-                <div className="activity-item">
-                <span className="activity-time">9:15 AM</span>
-                <span>Two-factor authentication enabled</span>
-                </div>
-                <div className="activity-item">
-                <span className="activity-time">8:45 AM</span>
-                <span>New device login from Chrome on Windows</span>
-                </div>
+            <div className="security-tabs">
+              <button
+                className={`tab-btn ${securityTab === 'events' ? 'active' : ''}`}
+                onClick={() => setSecurityTab('events')}
+              >
+                Security Events
+              </button>
+              <button
+                className={`tab-btn ${securityTab === 'login-history' ? 'active' : ''}`}
+                onClick={() => setSecurityTab('login-history')}
+              >
+                Login History
+              </button>
+              <button
+                className={`tab-btn ${securityTab === 'devices' ? 'active' : ''}`}
+                onClick={() => setSecurityTab('devices')}
+              >
+                Connected Devices
+              </button>
             </div>
-            </div>
+
+            {securityTab === 'events' && (
+              <div className="recent-activity">
+                <h3>Recent Security Events</h3>
+                <div className="activity-list">
+                  {securityEvents.length === 0 ? (
+                    <div style={{textAlign: 'center', padding: '20px', color: '#666'}}>No security events found</div>
+                  ) : (
+                    securityEvents.map((event, index) => (
+                      <div key={event.id || index} className="activity-item">
+                        <span className="activity-time">
+                          {new Date(event.timestamp).toLocaleString()}
+                        </span>
+                        <span>
+                          {event.event_type.replace('_', ' ').toUpperCase()}: {event.details?.message || 'Event occurred'}
+                          {event.user_id && ` (User: ${event.user_id})`}
+                        </span>
+                        <span className={`event-severity severity-${event.severity || 1}`}>
+                          {event.severity === 5 ? 'Critical' : event.severity === 4 ? 'High' : event.severity === 3 ? 'Medium' : event.severity === 2 ? 'Low' : 'Info'}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {securityTab === 'login-history' && (
+              <div className="login-history">
+                <h3>Login History</h3>
+                <div className="history-list">
+                  {loginHistory.length === 0 ? (
+                    <div style={{textAlign: 'center', padding: '20px', color: '#666'}}>No login history found</div>
+                  ) : (
+                    loginHistory.map((login, index) => (
+                      <div key={login.id || index} className="history-item">
+                        <div className="history-info">
+                          <strong>{login.user_id}</strong>
+                          <span>{new Date(login.timestamp).toLocaleString()}</span>
+                        </div>
+                        <div className="history-details">
+                          <span>IP: {login.ip_address}</span>
+                          <span>Device: {login.device_type}</span>
+                          <span className={`login-status status-${login.status}`}>
+                            {login.status}
+                          </span>
+                        </div>
+                        {login.failure_reason && (
+                          <div className="failure-reason">
+                            Reason: {login.failure_reason}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {securityTab === 'devices' && (
+              <div className="devices-section">
+                <h3>Connected Devices</h3>
+                <div className="devices-list">
+                  {connectedDevices.length === 0 ? (
+                    <div style={{textAlign: 'center', padding: '20px', color: '#666'}}>No connected devices found</div>
+                  ) : (
+                    connectedDevices.map((device, index) => (
+                      <div key={device.id || index} className="device-item">
+                        <div className="device-info">
+                          <strong>{device.device_name || `${device.device_type} Device`}</strong>
+                          <span>User: {device.user_id}</span>
+                        </div>
+                        <div className="device-details">
+                          <span>Browser: {device.browser || 'Unknown'}</span>
+                          <span>OS: {device.os || 'Unknown'}</span>
+                          <span>Last used: {new Date(device.last_used).toLocaleString()}</span>
+                        </div>
+                        <div className={`device-status ${device.is_trusted ? 'trusted' : 'untrusted'}`}>
+                          {device.is_trusted ? 'Trusted' : 'Untrusted'}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
         </motion.section>
         )}
 
@@ -2173,13 +2326,23 @@ const handleSettingChange = (settingKey) => {
         )}
         </AnimatePresence>
       </main>
-      <ChangePassword 
-        isOpen={isChangePasswordOpen} 
-        onClose={() => setIsChangePasswordOpen(false)} 
+      <ChangePassword
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
       />
 
+      {isAddProductOpen && (
+        <AddProductForm
+          onClose={() => setIsAddProductOpen(false)}
+          onSuccess={() => {
+            // Refresh products data if needed
+            setIsAddProductOpen(false);
+          }}
+        />
+      )}
 
-      
+
+
     </div>
   );
 };
