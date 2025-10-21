@@ -66,7 +66,7 @@ axiosClient.interceptors.response.use(
           console.error('Access forbidden:', data?.error?.message || 'Forbidden');
           break;
         case 404:
-          console.error('Resource not found:', data?.error?.message || 'Not found');
+          // Don't log 404 errors to console as they're handled by components
           break;
         case 500:
           console.error('Server error:', data?.error?.message || 'Internal server error');

@@ -138,7 +138,6 @@ function AppContent() {
       <Route path='/cart' element={<Cart />} />
       <Route path='/checkout' element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
       <Route path='/productDetails/:id' element={<ProductDetails />} />
-      <Route path='/productDetails' element={<ProductDetails />} />
       <Route path='/returnRefund' element={<ReturnRefund />} />
       <Route path='/offers' element={<Offers />} />
       <Route path='/modelViewer' element={<ModelViewer />} />

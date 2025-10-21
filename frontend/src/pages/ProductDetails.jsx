@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar/Navbar';
 import { productAPI } from '../api/productAPI';
 import './ProductDetails.css';
 
 const ProductDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [selectedColor, setSelectedColor] = useState('black');
   const [selectedSize, setSelectedSize] = useState('M');
   const [quantity, setQuantity] = useState(1);
@@ -104,12 +105,20 @@ const ProductDetail = () => {
   // Fetch product data
   useEffect(() => {
     const fetchProduct = async () => {
-      if (!id) return;
+      if (!id) {
+        navigate('/error/404');
+        return;
+      }
 
       setLoading(true);
       setError(null);
       try {
         const productData = await productAPI.getProduct(id);
+        if (!productData || !productData.id) {
+          // Product not found, redirect to 404
+          navigate('/error/404');
+          return;
+        }
         setProduct(productData);
         // Set default selections based on product data
         if (productData.colors && productData.colors.length > 0) {
@@ -121,15 +130,20 @@ const ProductDetail = () => {
         // Reset media index when new product loads
         setCurrentMedia(0);
       } catch (err) {
-        console.error('Failed to fetch product:', err);
-        setError('Failed to load product details');
+        // Check if it's a 404 error (product not found)
+        if (err.response?.status === 404) {
+          navigate('/error/404');
+          return;
+        }
+        // For other errors, show error state but don't log to console
+        setError('Failed to load product details. Please try again.');
       } finally {
         setLoading(false);
       }
     };
 
     fetchProduct();
-  }, [id]);
+  }, [id, navigate]);
 
   const handleAddToCart = () => {
     // In a real app, this would add the product to the cart
@@ -197,17 +211,6 @@ const ProductDetail = () => {
     );
   }
 
-  if (error || !product) {
-    return (
-      <div className="product-detail-container">
-        <Navbar />
-        <div className="error-container">
-          <h2>{error || 'Product not found'}</h2>
-          <p>Please try again later or contact support if the problem persists.</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="product-detail-container">

@@ -27,7 +27,10 @@ export const productAPI = {
       const response = await axiosClient.get(`/products/${productId}`);
       return response.data;
     } catch (error) {
-      console.error('Failed to fetch product:', error);
+      // Don't log 404 errors as they're handled by the component
+      if (error.response?.status !== 404) {
+        console.error('Failed to fetch product:', error);
+      }
       throw error;
     }
   },
