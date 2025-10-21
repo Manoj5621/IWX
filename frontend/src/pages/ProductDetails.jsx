@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar/Navbar';
+import { productAPI } from '../api/productAPI';
 import './ProductDetails.css';
 
 const ProductDetail = () => {
+  const { id } = useParams();
   const [selectedColor, setSelectedColor] = useState('black');
   const [selectedSize, setSelectedSize] = useState('M');
   const [quantity, setQuantity] = useState(1);
@@ -14,44 +17,10 @@ const ProductDetail = () => {
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const product = {
-    id: 1,
-    name: 'Premium Leather Jacket',
-    brand: 'InfiniteWaveX',
-    price: 199.99,
-    originalPrice: 249.99,
-    description: 'Crafted from the finest genuine leather, this premium jacket combines timeless style with modern sophistication. Designed for those who appreciate quality and attention to detail.',
-    details: '100% genuine leather. Lining: 100% cotton. Imported. Button closure. Dry clean only.',
-    colors: [
-      { name: 'Black', value: 'black', image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=870&q=80' },
-      { name: 'Brown', value: 'brown', image: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=869&q=80' },
-      { name: 'Navy', value: 'navy', image: 'https://images.unsplash.com/photo-1551110376-6d9bd77c76c4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=870&q=80' }
-    ],
-    sizes: ['XS', 'S', 'M', 'L', 'XL'],
-    images: [
-      'https://images.unsplash.com/photo-1551028719-00167b16eac5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=870&q=80',
-      'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=869&q=80',
-      'https://images.unsplash.com/photo-1551110376-6d9bd77c76c4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=870&q=80',
-      'https://images.unsplash.com/photo-1551110376-6d9bd77c76c4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=870&q=80'
-    ],
-    features: [
-      'Genuine leather construction',
-      'Soft cotton lining',
-      'Classic biker style',
-      'Multiple pocket options',
-      'Adjustable cuffs and waist'
-    ],
-    materials: [
-      { name: 'Leather', percentage: 100 },
-      { name: 'Cotton', percentage: 100 }
-    ],
-    rating: 4.8,
-    reviews: 142,
-    inStock: true,
-    sku: 'IWX-LJ-001',
-    delivery: 'Free delivery on orders over $100'
-  };
 
   const relatedProducts = [
     {
@@ -131,6 +100,34 @@ const ProductDetail = () => {
     }
   }, [showNotification]);
 
+  // Fetch product data
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!id) return;
+
+      setLoading(true);
+      setError(null);
+      try {
+        const productData = await productAPI.getProduct(id);
+        setProduct(productData);
+        // Set default selections based on product data
+        if (productData.colors && productData.colors.length > 0) {
+          setSelectedColor(productData.colors[0]);
+        }
+        if (productData.sizes && productData.sizes.length > 0) {
+          setSelectedSize(productData.sizes[0]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch product:', err);
+        setError('Failed to load product details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [id]);
+
   const handleAddToCart = () => {
     // In a real app, this would add the product to the cart
     setShowNotification(true);
@@ -164,6 +161,30 @@ const ProductDetail = () => {
     { name: 'Copy Link', icon: '🔗' }
   ];
 
+  if (loading) {
+    return (
+      <div className="product-detail-container">
+        <Navbar />
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Loading product details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className="product-detail-container">
+        <Navbar />
+        <div className="error-container">
+          <h2>{error || 'Product not found'}</h2>
+          <p>Please try again later or contact support if the problem persists.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="product-detail-container">
       <Navbar />
@@ -185,7 +206,7 @@ const ProductDetail = () => {
       {/* Breadcrumb */}
       <div className="breadcrumb">
         <div className="container">
-          <a href="#/">Home</a> / <a href="#/">Men</a> / <a href="#/">Jackets</a> / <span>{product.name}</span>
+          <a href="#/">Home</a> / <a href="#/">Products</a> / <span>{product.name}</span>
         </div>
       </div>
 
@@ -195,30 +216,36 @@ const ProductDetail = () => {
             {/* Product Images */}
             <div className="product-images">
               <div className="main-image">
-                <img 
-                  src={product.images[currentImage]} 
+                <img
+                  src={product.images && product.images.length > 0 ? product.images[currentImage] : '/placeholder.png'}
                   alt={product.name}
                   className={isZoomed ? 'zoomed' : ''}
                   onClick={() => setIsZoomed(!isZoomed)}
+                  onError={(e) => {
+                    e.target.src = '/placeholder.png';
+                  }}
                 />
-                <button 
+                <button
                   className="wishlist-btn"
                   onClick={handleWishlist}
                 >
                   {isWishlisted ? '❤️' : '♡'}
                 </button>
-                {product.originalPrice > product.price && (
+                {product.sale_price && (
                   <span className="sale-badge">SALE</span>
                 )}
               </div>
               <div className="image-thumbnails">
-                {product.images.map((image, index) => (
-                  <div 
-                    key={index} 
+                {product.images && product.images.map((image, index) => (
+                  <div
+                    key={index}
                     className={`thumbnail ${currentImage === index ? 'active' : ''}`}
                     onClick={() => setCurrentImage(index)}
                   >
-                    <img src={image} alt={`${product.name} view ${index + 1}`} />
+                    <img src={image} alt={`${product.name} view ${index + 1}`}
+                         onError={(e) => {
+                           e.target.src = '/placeholder.png';
+                         }} />
                   </div>
                 ))}
               </div>
@@ -227,104 +254,111 @@ const ProductDetail = () => {
             {/* Product Info */}
             <div className="product-info">
               <div className="brand-header">
-                <h1>{product.brand}</h1>
+                <h1>InfiniteWaveX</h1>
                 <p className="slogan">Designing Tomorrow, Today</p>
               </div>
-              
+
               <h2>{product.name}</h2>
-              
+
               <div className="price-section">
-                {product.originalPrice > product.price ? (
+                {product.sale_price ? (
                   <>
-                    <span className="current-price">${product.price.toFixed(2)}</span>
-                    <span className="original-price">${product.originalPrice.toFixed(2)}</span>
-                    <span className="discount">({Math.round((1 - product.price / product.originalPrice) * 100)}% OFF)</span>
+                    <span className="current-price">${product.sale_price.toFixed(2)}</span>
+                    <span className="original-price">${product.price.toFixed(2)}</span>
+                    <span className="discount">({Math.round((1 - product.sale_price / product.price) * 100)}% OFF)</span>
                   </>
                 ) : (
-                  <span className="current-price">${product.price.toFixed(2)}</span>
+                  <span className="current-price">${product.price ? product.price.toFixed(2) : 'N/A'}</span>
                 )}
               </div>
 
               <div className="rating-section">
                 <div className="stars">
-                  {renderStars(product.rating)}
-                  <span>({product.reviews})</span>
+                  {renderStars(product.rating || 0)}
+                  <span>({product.review_count || 0})</span>
                 </div>
-                <span className="sku">SKU: {product.sku}</span>
+                <span className="sku">SKU: {product.sku || 'N/A'}</span>
               </div>
 
-              <div className="color-section">
-                <h3>Color: {selectedColor}</h3>
-                <div className="color-options">
-                  {product.colors.map(color => (
-                    <div 
-                      key={color.value}
-                      className={`color-option ${selectedColor === color.value ? 'active' : ''}`}
-                      onClick={() => setSelectedColor(color.value)}
-                    >
-                      <img src={color.image} alt={color.name} />
-                      <span>{color.name}</span>
-                    </div>
-                  ))}
+              {product.colors && product.colors.length > 0 && (
+                <div className="color-section">
+                  <h3>Color: {selectedColor}</h3>
+                  <div className="color-options">
+                    {product.colors.map((color, index) => (
+                      <div
+                        key={color || index}
+                        className={`color-option ${selectedColor === color ? 'active' : ''}`}
+                        onClick={() => setSelectedColor(color)}
+                      >
+                        <div
+                          className="color-swatch"
+                          style={{ backgroundColor: color.toLowerCase() }}
+                        ></div>
+                        <span>{color}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="size-section">
-                <div className="size-header">
-                  <h3>Size: {selectedSize}</h3>
-                  <button 
-                    className="size-guide-btn"
-                    onClick={() => setShowSizeGuide(!showSizeGuide)}
-                  >
-                    Size Guide
-                  </button>
-                </div>
-                
-                <div className="size-options">
-                  {product.sizes.map(size => (
+              {product.sizes && product.sizes.length > 0 && (
+                <div className="size-section">
+                  <div className="size-header">
+                    <h3>Size: {selectedSize}</h3>
                     <button
-                      key={size}
-                      className={`size-option ${selectedSize === size ? 'active' : ''}`}
-                      onClick={() => setSelectedSize(size)}
+                      className="size-guide-btn"
+                      onClick={() => setShowSizeGuide(!showSizeGuide)}
                     >
-                      {size}
+                      Size Guide
                     </button>
-                  ))}
-                </div>
+                  </div>
 
-                <AnimatePresence>
-                  {showSizeGuide && (
-                    <motion.div 
-                      className="size-guide"
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                    >
-                      <h4>Size Guide (inches)</h4>
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>Size</th>
-                            {sizeGuide.measurements.map(m => (
-                              <th key={m}>{m}</th>
+                  <div className="size-options">
+                    {product.sizes.map((size, index) => (
+                      <button
+                        key={size || index}
+                        className={`size-option ${selectedSize === size ? 'active' : ''}`}
+                        onClick={() => setSelectedSize(size)}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <AnimatePresence>
+                {showSizeGuide && (
+                  <motion.div
+                    className="size-guide"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                  >
+                    <h4>Size Guide (inches)</h4>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Size</th>
+                          {sizeGuide.measurements.map(m => (
+                            <th key={m}>{m}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(sizeGuide.sizes).map(([size, measurements]) => (
+                          <tr key={size}>
+                            <td>{size}</td>
+                            {measurements.map((m, i) => (
+                              <td key={i}>{m}"</td>
                             ))}
                           </tr>
-                        </thead>
-                        <tbody>
-                          {Object.entries(sizeGuide.sizes).map(([size, measurements]) => (
-                            <tr key={size}>
-                              <td>{size}</td>
-                              {measurements.map((m, i) => (
-                                <td key={i}>{m}"</td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                        ))}
+                      </tbody>
+                    </table>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <div className="quantity-section">
                 <h3>Quantity</h3>
@@ -349,7 +383,7 @@ const ProductDetail = () => {
               </div>
 
               <div className="delivery-info">
-                <p>🚚 {product.delivery}</p>
+                <p>🚚 Free delivery on orders over $100</p>
                 <p>📦 Free returns within 30 days</p>
               </div>
 
@@ -401,7 +435,7 @@ const ProductDetail = () => {
                 className={activeTab === 'reviews' ? 'active' : ''}
                 onClick={() => setActiveTab('reviews')}
               >
-                Reviews ({product.reviews})
+                Reviews ({product.review_count || 0})
               </button>
               <button 
                 className={activeTab === 'shipping' ? 'active' : ''}
@@ -417,14 +451,16 @@ const ProductDetail = () => {
                   <h3>Product Description</h3>
                   <p>{product.description}</p>
                   
-                  <div className="features-list">
-                    <h4>Features</h4>
-                    <ul>
-                      {product.features.map((feature, index) => (
-                        <li key={index}>{feature}</li>
-                      ))}
-                    </ul>
-                  </div>
+                  {product.features && product.features.length > 0 && (
+                    <div className="features-list">
+                      <h4>Features</h4>
+                      <ul>
+                        {product.features.map((feature, index) => (
+                          <li key={index}>{feature}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -433,16 +469,18 @@ const ProductDetail = () => {
                   <h3>Details & Care</h3>
                   <p>{product.details}</p>
                   
-                  <div className="materials-list">
-                    <h4>Materials</h4>
-                    <ul>
-                      {product.materials.map((material, index) => (
-                        <li key={index}>
-                          {material.name}: {material.percentage}%
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  {product.materials && product.materials.length > 0 && (
+                    <div className="materials-list">
+                      <h4>Materials</h4>
+                      <ul>
+                        {product.materials.map((material, index) => (
+                          <li key={index}>
+                            {material.name}: {material.percentage}%
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   
                   <div className="care-instructions">
                     <h4>Care Instructions</h4>
@@ -462,9 +500,9 @@ const ProductDetail = () => {
                   
                   <div className="review-summary">
                     <div className="average-rating">
-                      <span className="rating-number">{product.rating}</span>
-                      <div className="stars">{renderStars(product.rating)}</div>
-                      <span>{product.reviews} reviews</span>
+                      <span className="rating-number">{product.rating || 0}</span>
+                      <div className="stars">{renderStars(product.rating || 0)}</div>
+                      <span>{product.review_count || 0} reviews</span>
                     </div>
                     
                     <div className="rating-bars">
@@ -477,7 +515,7 @@ const ProductDetail = () => {
                               style={{ width: `${(rating / 5) * 100}%` }}
                             ></div>
                           </div>
-                          <span>{Math.round((rating / 5) * product.reviews)}</span>
+                          <span>{Math.round((rating / 5) * (product.review_count || 0))}</span>
                         </div>
                       ))}
                     </div>

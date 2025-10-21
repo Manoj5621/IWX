@@ -1,11 +1,13 @@
 // ProductListing.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar/Navbar';
 import { productAPI } from '../api/productAPI';
 import './ProductListing.css';
 
 const ProductListing = () => {
+  const navigate = useNavigate();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [selectedSort, setSelectedSort] = useState('recommended');
@@ -117,6 +119,11 @@ const ProductListing = () => {
 
   // Change page
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  // Handle product click navigation
+  const handleProductClick = (productId) => {
+    navigate(`/productDetails/${productId}`);
+  };
 
   // Render star ratings
   const renderStars = (rating) => {
@@ -374,13 +381,15 @@ const ProductListing = () => {
               <>
                 <div className="products-grid">
                   {currentProducts.map(product => (
-                    <motion.div 
-                      key={product.id} 
+                    <motion.div
+                      key={product.id}
                       className="product-card"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ duration: 0.3 }}
                       whileHover={{ y: -5 }}
+                      onClick={() => handleProductClick(product.id)}
+                      style={{ cursor: 'pointer' }}
                     >
                       <div className="product-image">
                         <img
