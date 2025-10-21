@@ -1,27 +1,22 @@
-from fastapi import WebSocket, WebSocketDisconnect, APIRouter
+from fastapi import WebSocket, WebSocketDisconnect, APIRouter, Depends
 from typing import Dict, List
 import json
 import logging
 from datetime import datetime
+from auth.dependencies import get_current_admin_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ws")
 
-class ConnectionManager:
-    """WebSocket connection manager for real-time updates"""
+class WebSocketManager:
+    """Clean WebSocket connection manager"""
 
     def __init__(self):
-        self.active_connections: Dict[str, List[WebSocket]] = {
-            "dashboard": [],  # Admin dashboard updates
-            "products": [],   # Product updates
-            "orders": [],     # Order updates
-            "users": []       # User activity
-        }
+        self.active_connections: Dict[str, List[WebSocket]] = {}
 
     async def connect(self, websocket: WebSocket, channel: str):
         """Connect to a channel"""
-        await websocket.accept()
         if channel not in self.active_connections:
             self.active_connections[channel] = []
         self.active_connections[channel].append(websocket)
@@ -30,8 +25,9 @@ class ConnectionManager:
     def disconnect(self, websocket: WebSocket, channel: str):
         """Disconnect from a channel"""
         if channel in self.active_connections:
-            self.active_connections[channel].remove(websocket)
-            logger.info(f"Client disconnected from {channel} channel")
+            if websocket in self.active_connections[channel]:
+                self.active_connections[channel].remove(websocket)
+                logger.info(f"Client disconnected from {channel} channel")
 
     async def broadcast(self, channel: str, message: dict):
         """Broadcast message to all clients in a channel"""
@@ -54,117 +50,144 @@ class ConnectionManager:
         for conn in disconnected:
             self.disconnect(conn, channel)
 
-    async def send_to_user(self, user_id: str, message: dict):
-        """Send message to specific user (if connected)"""
-        # This would require tracking user connections
-        pass
+# Global WebSocket manager
+ws_manager = WebSocketManager()
 
-# Global connection manager
-manager = ConnectionManager()
-
-@router.websocket("/dashboard")
-async def dashboard_websocket(websocket: WebSocket):
-    """WebSocket for admin dashboard real-time updates"""
-    # Get token from query parameters
-    token = websocket.query_params.get('token')
-
-    # Authenticate user if token is provided
-    if token:
-        from auth.security import verify_token
-        from auth.dependencies import get_current_admin_user
-        from models.user import UserInDB
-
-        payload = verify_token(token)
-        if payload:
-            user_id = payload.get("sub")
-            if user_id:
-                from database.mongodb import MongoDB, USERS_COLLECTION
-                user_doc = await MongoDB.get_collection(USERS_COLLECTION).find_one({"_id": user_id})
-                if user_doc and user_doc.get("role") == "admin" and user_doc.get("status") == "active":
-                    await manager.connect(websocket, "dashboard")
-                else:
-                    await websocket.close(code=1008, reason="Unauthorized")
-                    return
-            else:
-                await websocket.close(code=1008, reason="Invalid token")
-                return
-        else:
-            await websocket.close(code=1008, reason="Invalid token")
-            return
-    else:
-        await websocket.close(code=1008, reason="Authentication required")
-        return
+@router.websocket("/admin-dashboard")
+async def admin_dashboard_websocket(websocket: WebSocket, current_user: dict = Depends(get_current_admin_user)):
+    """Clean WebSocket endpoint for admin dashboard"""
+    await websocket.accept()
+    await ws_manager.connect(websocket, "admin-dashboard")
+    logger.info(f"Admin {current_user.get('id')} connected to dashboard WebSocket")
 
     try:
         while True:
-            # Keep connection alive and listen for client messages
+            # Keep connection alive
             data = await websocket.receive_text()
-            # Handle client messages if needed
-            logger.info(f"Dashboard WS received: {data}")
-
+            # Echo back for connection health check
+            await websocket.send_json({"type": "pong", "timestamp": datetime.utcnow().isoformat()})
     except WebSocketDisconnect:
-        manager.disconnect(websocket, "dashboard")
+        ws_manager.disconnect(websocket, "admin-dashboard")
+        logger.info("Admin dashboard WebSocket disconnected")
     except Exception as e:
-        logger.error(f"Dashboard WebSocket error: {e}")
-        try:
-            await websocket.close(code=1011, reason="Internal server error")
-        except:
-            pass
+        logger.error(f"Admin dashboard WebSocket error: {e}")
+        ws_manager.disconnect(websocket, "admin-dashboard")
 
 @router.websocket("/products")
 async def products_websocket(websocket: WebSocket):
     """WebSocket for product updates"""
-    await manager.connect(websocket, "products")
+    await websocket.accept()
+    await ws_manager.connect(websocket, "products")
 
     try:
         while True:
             data = await websocket.receive_text()
-            logger.info(f"Products WS received: {data}")
-
+            await websocket.send_json({"type": "pong", "timestamp": datetime.utcnow().isoformat()})
     except WebSocketDisconnect:
-        manager.disconnect(websocket, "products")
+        ws_manager.disconnect(websocket, "products")
+    except Exception as e:
+        logger.error(f"Products WebSocket error: {e}")
+        ws_manager.disconnect(websocket, "products")
 
 @router.websocket("/orders")
 async def orders_websocket(websocket: WebSocket):
     """WebSocket for order updates"""
-    await manager.connect(websocket, "orders")
+    await websocket.accept()
+    await ws_manager.connect(websocket, "orders")
 
     try:
         while True:
             data = await websocket.receive_text()
-            logger.info(f"Orders WS received: {data}")
-
+            await websocket.send_json({"type": "pong", "timestamp": datetime.utcnow().isoformat()})
     except WebSocketDisconnect:
-        manager.disconnect(websocket, "orders")
+        ws_manager.disconnect(websocket, "orders")
+    except Exception as e:
+        logger.error(f"Orders WebSocket error: {e}")
+        ws_manager.disconnect(websocket, "orders")
 
-# Utility functions for broadcasting updates
-async def broadcast_dashboard_update(update_type: str, data: dict):
-    """Broadcast dashboard update"""
-    await manager.broadcast("dashboard", {
-        "type": update_type,
+# Clean broadcast functions
+async def broadcast_to_channel(channel: str, message_type: str, data: dict):
+    """Broadcast message to a specific channel"""
+    await ws_manager.broadcast(channel, {
+        "type": message_type,
         "data": data
     })
 
+async def broadcast_dashboard_update(update_type: str, data: dict):
+    """Broadcast dashboard update"""
+    await broadcast_to_channel("admin-dashboard", update_type, data)
+
 async def broadcast_product_update(product_id: str, update_type: str, data: dict):
     """Broadcast product update"""
-    await manager.broadcast("products", {
-        "type": update_type,
+    await broadcast_to_channel("products", update_type, {
         "product_id": product_id,
-        "data": data
+        **data
     })
 
 async def broadcast_order_update(order_id: str, update_type: str, data: dict):
     """Broadcast order update"""
-    await manager.broadcast("orders", {
-        "type": update_type,
+    await broadcast_to_channel("orders", update_type, {
         "order_id": order_id,
-        "data": data
+        **data
     })
+
+# Admin dashboard broadcast functions
+async def broadcast_inventory_update(message_type: str, data: dict):
+    """Broadcast inventory update"""
+    await broadcast_to_channel("admin-dashboard", message_type, data)
+
+async def broadcast_marketing_campaigns_update(message_type: str, data: dict):
+    """Broadcast marketing campaigns update"""
+    await broadcast_to_channel("admin-dashboard", message_type, data)
+
+async def broadcast_marketing_stats_update(message_type: str, data: dict):
+    """Broadcast marketing stats update"""
+    await broadcast_to_channel("admin-dashboard", message_type, data)
+
+async def broadcast_performance_update(message_type: str, data: dict):
+    """Broadcast performance update"""
+    await broadcast_to_channel("admin-dashboard", message_type, data)
+
+async def broadcast_customer_satisfaction_update(message_type: str, data: dict):
+    """Broadcast customer satisfaction update"""
+    await broadcast_to_channel("admin-dashboard", message_type, data)
+
+async def broadcast_traffic_update(message_type: str, data: dict):
+    """Broadcast traffic update"""
+    await broadcast_to_channel("admin-dashboard", message_type, data)
+
+async def broadcast_system_status_update(message_type: str, data: dict):
+    """Broadcast system status update"""
+    await broadcast_to_channel("admin-dashboard", message_type, data)
 
 async def broadcast_user_activity(user_id: str, activity_type: str, data: dict):
     """Broadcast user activity"""
-    await manager.broadcast("users", {
-        "type": activity_type,
+    await broadcast_to_channel("admin-dashboard", activity_type, {
         "user_id": user_id,
-        "data": data
+        **data
     })
+
+# Trigger functions for data updates
+async def trigger_traffic_data_update(data):
+    """Trigger traffic data update"""
+    await broadcast_traffic_update("traffic_update", {"sources": data})
+
+async def trigger_performance_data_update(data):
+    """Trigger performance data update"""
+    await broadcast_performance_update("metrics_update", data)
+
+async def trigger_marketing_campaigns_update(data):
+    """Trigger marketing campaigns update"""
+    await broadcast_marketing_campaigns_update("campaigns_update", {"campaigns": data})
+
+async def trigger_customer_satisfaction_update(data):
+    """Trigger customer satisfaction update"""
+    await broadcast_customer_satisfaction_update("satisfaction_update", data)
+
+async def trigger_system_status_update(data):
+    """Trigger system status update"""
+    await broadcast_system_status_update("status_update", {"services": data})
+
+async def trigger_marketing_stats_update(data):
+    """Trigger marketing stats update"""
+    await broadcast_marketing_stats_update("stats_update", data)

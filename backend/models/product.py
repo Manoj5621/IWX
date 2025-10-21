@@ -27,8 +27,8 @@ class ProductBase(BaseModel):
     status: ProductStatus = ProductStatus.ACTIVE
 
 class ProductCreate(ProductBase):
-    images: List[str] = Field(default_factory=list)
-    videos: List[str] = Field(default_factory=list)
+    images: List[str] = Field(default_factory=list, description="Base64 encoded images")
+    videos: List[str] = Field(default_factory=list, description="Base64 encoded videos")
     sizes: List[str] = Field(default_factory=list)
     colors: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
@@ -48,8 +48,8 @@ class ProductUpdate(BaseModel):
     brand: Optional[str] = Field(None, min_length=1, max_length=100)
     sku: Optional[str] = Field(None, min_length=1, max_length=50)
     status: Optional[ProductStatus] = None
-    images: Optional[List[str]] = None
-    videos: Optional[List[str]] = None
+    images: Optional[List[str]] = Field(None, description="Base64 encoded images")
+    videos: Optional[List[str]] = Field(None, description="Base64 encoded videos")
     sizes: Optional[List[str]] = None
     colors: Optional[List[str]] = None
     tags: Optional[List[str]] = None
@@ -62,17 +62,17 @@ class ProductUpdate(BaseModel):
 
 class ProductInDB(ProductBase):
     id: str
-    images: List[str]
-    videos: List[str]
-    sizes: List[str]
-    colors: List[str]
-    tags: List[str]
-    attributes: Optional[Dict[str, Any]]
-    inventory_quantity: int
-    weight: Optional[float]
-    dimensions: Optional[Dict[str, float]]
-    seo_title: Optional[str]
-    seo_description: Optional[str]
+    images: List[str] = Field(default_factory=list, description="Base64 encoded images")
+    videos: List[str] = Field(default_factory=list, description="Base64 encoded videos")
+    sizes: List[str] = Field(default_factory=list)
+    colors: List[str] = Field(default_factory=list)
+    tags: List[str] = Field(default_factory=list)
+    attributes: Optional[Dict[str, Any]] = None
+    inventory_quantity: int = 0
+    weight: Optional[float] = None
+    dimensions: Optional[Dict[str, float]] = None
+    seo_title: Optional[str] = None
+    seo_description: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     created_by: str  # User ID
@@ -82,6 +82,9 @@ class ProductInDB(ProductBase):
     is_featured: bool = False
     is_trending: bool = False
     is_sustainable: bool = False
+
+    class Config:
+        from_attributes = True
 
 class ProductResponse(BaseModel):
     id: str
@@ -93,8 +96,8 @@ class ProductResponse(BaseModel):
     brand: str
     sku: str
     status: ProductStatus
-    images: List[str]
-    videos: List[str]
+    images: List[str] = Field(description="Base64 encoded images")
+    videos: List[str] = Field(description="Base64 encoded videos")
     sizes: List[str]
     colors: List[str]
     tags: List[str]

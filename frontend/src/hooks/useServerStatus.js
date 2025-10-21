@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -10,7 +10,16 @@ export const useServerStatus = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const checkBackendStatus = async () => {
+  const checkInProgress = useRef(false);
+  const intervalRef = useRef(null);
+
+  const checkBackendStatus = useCallback(async () => {
+    if (checkInProgress.current) {
+      console.log('Backend check already in progress, skipping');
+      return;
+    }
+
+    checkInProgress.current = true;
     const previousStatus = backendStatus;
 
     try {
@@ -40,11 +49,13 @@ export const useServerStatus = () => {
         setStoredPath(location.pathname);
         console.log('Backend went offline, stored path:', location.pathname);
       }
+    } finally {
+      setLastChecked(new Date());
+      checkInProgress.current = false;
     }
-    setLastChecked(new Date());
-  };
+  }, [backendStatus, storedPath, navigate, location.pathname]);
 
-  const checkBackendServices = async () => {
+  const checkBackendServices = useCallback(async () => {
     try {
       console.log('Checking backend services...');
       const services = [
@@ -75,9 +86,9 @@ export const useServerStatus = () => {
       console.error('Failed to check backend services:', error);
       return null;
     }
-  };
+  }, []);
 
-  const checkFrontendStatus = () => {
+  const checkFrontendStatus = useCallback(() => {
     // Check if we can reach the frontend server itself
     if (navigator.onLine) {
       // Try to fetch a static asset to verify frontend connectivity
@@ -95,7 +106,7 @@ export const useServerStatus = () => {
     } else {
       setFrontendStatus('offline');
     }
-  };
+  }, []);
 
   useEffect(() => {
     // Initial checks
@@ -103,9 +114,9 @@ export const useServerStatus = () => {
     checkFrontendStatus();
 
     // Set up periodic checks
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       checkBackendStatus();
-    }, 30000); // Check every 30 seconds
+    }, 60000); // Check every 60 seconds to reduce rate limiting
 
     // Check immediately when coming back online
     const handleOnline = () => {
@@ -122,17 +133,19 @@ export const useServerStatus = () => {
     window.addEventListener('offline', handleOffline);
 
     return () => {
-      clearInterval(interval);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+  }, [checkBackendStatus, checkFrontendStatus]);
 
   // Manual retry function
-  const retryChecks = () => {
+  const retryChecks = useCallback(() => {
     checkBackendStatus();
     checkFrontendStatus();
-  };
+  }, [checkBackendStatus, checkFrontendStatus]);
 
   return {
     backendStatus,

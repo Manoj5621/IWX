@@ -35,6 +35,8 @@ function AppContent() {
   const location = useLocation();
 
   useEffect(() => {
+    let isMounted = true;
+
     const initAuth = async () => {
       const token = localStorage.getItem('token');
       const urlParams = new URLSearchParams(window.location.search);
@@ -44,6 +46,8 @@ function AppContent() {
       if (googleCode && (window.location.pathname === '/auth' || window.location.pathname === '/auth/google/callback')) {
         try {
           const response = await authAPI.googleCallback(googleCode);
+          if (!isMounted) return;
+
           const userRole = response.user?.role || 'user';
           localStorage.setItem('userRole', userRole);
           localStorage.setItem('token', response.access_token);
@@ -55,6 +59,7 @@ function AppContent() {
           window.history.replaceState({}, document.title, '/');
           return;
         } catch (error) {
+          if (!isMounted) return;
           console.error('Google OAuth callback error:', error);
           dispatch(loginFailure('Google authentication failed'));
         }
@@ -68,6 +73,8 @@ function AppContent() {
           // For non-remember me sessions, we still validate the token
           // but the backend will handle expiration
           const user = await authAPI.getCurrentUser();
+          if (!isMounted) return;
+
           if (user) {
             const userRole = user.role || 'user';
             localStorage.setItem('userRole', userRole);
@@ -76,6 +83,7 @@ function AppContent() {
             throw new Error('Failed to get user data');
           }
         } catch (error) {
+          if (!isMounted) return;
           console.error('Auth initialization error:', error);
           // Check if it's a token expiration error (401)
           if (error.response?.status === 401) {
@@ -89,10 +97,17 @@ function AppContent() {
           }
         }
       } else {
-        dispatch(setLoading(false));
+        if (isMounted) {
+          dispatch(setLoading(false));
+        }
       }
     };
+
     initAuth();
+
+    return () => {
+      isMounted = false;
+    };
   }, [dispatch]);
 
   if (loading) {
@@ -122,6 +137,7 @@ function AppContent() {
       <Route path='/faq' element={<FAQ />} />
       <Route path='/cart' element={<Cart />} />
       <Route path='/checkout' element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
+      <Route path='/productDetails/:id' element={<ProductDetails />} />
       <Route path='/productDetails' element={<ProductDetails />} />
       <Route path='/returnRefund' element={<ReturnRefund />} />
       <Route path='/offers' element={<Offers />} />

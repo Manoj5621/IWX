@@ -4,6 +4,7 @@ class WebSocketService {
     this.reconnectAttempts = {};
     this.maxReconnectAttempts = 5;
     this.reconnectDelay = 1000;
+    this.isReconnecting = {};
   }
 
   connect(channel, onMessage, onError, onClose) {
@@ -11,15 +12,23 @@ class WebSocketService {
       this.connections[channel].close();
     }
 
+    if (this.isReconnecting[channel]) {
+      console.log(`Already reconnecting to ${channel}, skipping`);
+      return null;
+    }
+
     const token = localStorage.getItem('token');
-    const wsUrl = `ws://localhost:8000/ws/${channel}${token ? `?token=${token}` : ''}`;
+    const wsUrl = `ws://localhost:8000/ws/${channel}`;
 
     try {
-      const ws = new WebSocket(wsUrl);
+      const ws = new WebSocket(wsUrl, [], {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
 
       ws.onopen = () => {
         console.log(`WebSocket connected to ${channel}`);
         this.reconnectAttempts[channel] = 0;
+        this.isReconnecting[channel] = false;
       };
 
       ws.onmessage = (event) => {
@@ -46,8 +55,8 @@ class WebSocketService {
           onClose(event);
         }
 
-        // Attempt to reconnect if not a normal closure
-        if (event.code !== 1000 && this.reconnectAttempts[channel] < this.maxReconnectAttempts) {
+        // Only attempt to reconnect if not a normal closure
+        if (event.code !== 1000 && !this.isReconnecting[channel] && this.reconnectAttempts[channel] < this.maxReconnectAttempts) {
           this.attemptReconnect(channel, onMessage, onError, onClose);
         }
       };
@@ -64,12 +73,18 @@ class WebSocketService {
   }
 
   attemptReconnect(channel, onMessage, onError, onClose) {
+    if (this.isReconnecting[channel]) {
+      return;
+    }
+
+    this.isReconnecting[channel] = true;
     this.reconnectAttempts[channel] = (this.reconnectAttempts[channel] || 0) + 1;
-    const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts[channel] - 1);
+    const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts[channel] - 1), 30000);
 
     console.log(`Attempting to reconnect to ${channel} in ${delay}ms (attempt ${this.reconnectAttempts[channel]}/${this.maxReconnectAttempts})`);
 
     setTimeout(() => {
+      this.isReconnecting[channel] = false;
       this.connect(channel, onMessage, onError, onClose);
     }, delay);
   }
@@ -78,6 +93,7 @@ class WebSocketService {
     if (this.connections[channel]) {
       this.connections[channel].close(1000, 'Client disconnecting');
       delete this.connections[channel];
+      this.isReconnecting[channel] = false;
     }
   }
 
@@ -97,6 +113,16 @@ class WebSocketService {
 
   isConnected(channel) {
     return this.connections[channel] && this.connections[channel].readyState === WebSocket.OPEN;
+  }
+
+  // Connect to admin dashboard with authentication
+  connectAdminDashboard(onMessage, onError, onClose) {
+    return this.connect('admin-dashboard', onMessage, onError, onClose);
+  }
+
+  // Disconnect from admin dashboard
+  disconnectAdminDashboard() {
+    this.disconnect('admin-dashboard');
   }
 }
 

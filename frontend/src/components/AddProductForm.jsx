@@ -1,9 +1,19 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { productAPI } from '../api/productAPI';
 import './AddProductForm.css';
 
-const AddProductForm = ({ onClose, onSuccess }) => {
+// Helper function to convert file to Base64
+const convertFileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = error => reject(error);
+  });
+};
+
+const AddProductForm = ({ onClose, onSuccess, editingProduct }) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -26,11 +36,40 @@ const AddProductForm = ({ onClose, onSuccess }) => {
     videos: []
   });
 
+  // Initialize form data if editing
+  useEffect(() => {
+    if (editingProduct) {
+      setFormData({
+        name: editingProduct.name || '',
+        description: editingProduct.description || '',
+        price: editingProduct.price || '',
+        sale_price: editingProduct.sale_price || '',
+        category: editingProduct.category || '',
+        brand: editingProduct.brand || '',
+        sku: editingProduct.sku || '',
+        status: editingProduct.status || 'active',
+        inventory_quantity: editingProduct.inventory_quantity || '',
+        weight: editingProduct.weight || '',
+        dimensions: editingProduct.dimensions || { length: '', width: '', height: '' },
+        seo_title: editingProduct.seo_title || '',
+        seo_description: editingProduct.seo_description || '',
+        sizes: editingProduct.sizes || [],
+        colors: editingProduct.colors || [],
+        tags: editingProduct.tags || [],
+        attributes: editingProduct.attributes || {},
+        images: editingProduct.images || [],
+        videos: editingProduct.videos || []
+      });
+    }
+  }, [editingProduct]);
+
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [currentStep, setCurrentStep] = useState(1);
   const [imageFiles, setImageFiles] = useState([]);
   const [videoFiles, setVideoFiles] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
+  const [videoPreviews, setVideoPreviews] = useState([]);
 
   const imageInputRef = useRef(null);
   const videoInputRef = useRef(null);
@@ -89,12 +128,30 @@ const AddProductForm = ({ onClose, onSuccess }) => {
     setImageFiles(prev => [...prev, ...files]);
     setErrors(prev => ({ ...prev, images: '' }));
 
-    // Convert to URLs for preview
-    const newImageUrls = files.map(file => URL.createObjectURL(file));
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, ...newImageUrls]
-    }));
+    // Convert files to Base64 and create preview URLs
+    const processFiles = async () => {
+      const newBase64Images = [];
+      const newPreviews = [];
+
+      for (const file of files) {
+        try {
+          const base64 = await convertFileToBase64(file);
+          newBase64Images.push(base64);
+          // Create preview URL for display
+          newPreviews.push(URL.createObjectURL(file));
+        } catch (error) {
+          console.error('Error converting image to Base64:', error);
+        }
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        images: [...prev.images, ...newBase64Images]
+      }));
+      setImagePreviews(prev => [...prev, ...newPreviews]);
+    };
+
+    processFiles();
   };
 
   const handleVideoUpload = (e) => {
@@ -107,26 +164,48 @@ const AddProductForm = ({ onClose, onSuccess }) => {
     setVideoFiles(prev => [...prev, ...files]);
     setErrors(prev => ({ ...prev, videos: '' }));
 
-    // Convert to URLs for preview
-    const newVideoUrls = files.map(file => URL.createObjectURL(file));
-    setFormData(prev => ({
-      ...prev,
-      videos: [...prev.videos, ...newVideoUrls]
-    }));
+    // Convert files to Base64 and create preview URLs
+    const processFiles = async () => {
+      const newBase64Videos = [];
+      const newPreviews = [];
+
+      for (const file of files) {
+        try {
+          const base64 = await convertFileToBase64(file);
+          newBase64Videos.push(base64);
+          // Create preview URL for display
+          newPreviews.push(URL.createObjectURL(file));
+        } catch (error) {
+          console.error('Error converting video to Base64:', error);
+        }
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        videos: [...prev.videos, ...newBase64Videos]
+      }));
+      setVideoPreviews(prev => [...prev, ...newPreviews]);
+    };
+
+    processFiles();
   };
 
   const removeImage = (index) => {
     const newImages = formData.images.filter((_, i) => i !== index);
     const newImageFiles = imageFiles.filter((_, i) => i !== index);
+    const newPreviews = imagePreviews.filter((_, i) => i !== index);
     setFormData(prev => ({ ...prev, images: newImages }));
     setImageFiles(newImageFiles);
+    setImagePreviews(newPreviews);
   };
 
   const removeVideo = (index) => {
     const newVideos = formData.videos.filter((_, i) => i !== index);
     const newVideoFiles = videoFiles.filter((_, i) => i !== index);
+    const newPreviews = videoPreviews.filter((_, i) => i !== index);
     setFormData(prev => ({ ...prev, videos: newVideos }));
     setVideoFiles(newVideoFiles);
+    setVideoPreviews(newPreviews);
   };
 
   const validateStep = (step) => {
@@ -198,12 +277,21 @@ const AddProductForm = ({ onClose, onSuccess }) => {
         }
       });
 
-      await productAPI.createProduct(submitData);
+      if (editingProduct) {
+        await productAPI.updateProduct(editingProduct.id, submitData);
+      } else {
+        await productAPI.createProduct(submitData);
+      }
       onSuccess && onSuccess();
       onClose();
     } catch (error) {
-      console.error('Failed to create product:', error);
-      setErrors({ submit: error.response?.data?.detail || 'Failed to create product' });
+      console.error('Failed to save product:', error);
+      if (error.response?.status === 529) {
+        console.log('Server overloaded, retrying save in 2 seconds...');
+        setTimeout(() => handleSubmit({ preventDefault: () => {} }), 2000);
+      } else {
+        setErrors({ submit: error.response?.data?.detail || 'Failed to save product' });
+      }
     } finally {
       setLoading(false);
     }
@@ -430,19 +518,19 @@ const AddProductForm = ({ onClose, onSuccess }) => {
         {errors.images && <span className="error-text">{errors.images}</span>}
 
         <div className="media-preview">
-          {formData.images.map((image, index) => (
-            <div key={index} className="media-item">
-              <img src={image} alt={`Product ${index + 1}`} />
-              <button
-                type="button"
-                className="remove-media"
-                onClick={() => removeImage(index)}
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
+           {imagePreviews.map((preview, index) => (
+             <div key={index} className="media-item">
+               <img src={preview} alt={`Product ${index + 1}`} />
+               <button
+                 type="button"
+                 className="remove-media"
+                 onClick={() => removeImage(index)}
+               >
+                 ✕
+               </button>
+             </div>
+           ))}
+         </div>
       </div>
 
       <div className="form-group">
@@ -468,19 +556,19 @@ const AddProductForm = ({ onClose, onSuccess }) => {
         {errors.videos && <span className="error-text">{errors.videos}</span>}
 
         <div className="media-preview">
-          {formData.videos.map((video, index) => (
-            <div key={index} className="media-item">
-              <video src={video} controls />
-              <button
-                type="button"
-                className="remove-media"
-                onClick={() => removeVideo(index)}
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
+           {videoPreviews.map((preview, index) => (
+             <div key={index} className="media-item">
+               <video src={preview} controls />
+               <button
+                 type="button"
+                 className="remove-media"
+                 onClick={() => removeVideo(index)}
+               >
+                 ✕
+               </button>
+             </div>
+           ))}
+         </div>
       </div>
     </motion.div>
   );
@@ -574,7 +662,7 @@ const AddProductForm = ({ onClose, onSuccess }) => {
           exit={{ opacity: 0, scale: 0.9 }}
         >
           <div className="modal-header">
-            <h2>Add New Product</h2>
+            <h2>{editingProduct ? 'Edit Product' : 'Add New Product'}</h2>
             <button className="close-btn" onClick={onClose}>✕</button>
           </div>
 
@@ -604,7 +692,7 @@ const AddProductForm = ({ onClose, onSuccess }) => {
                 </button>
               ) : (
                 <button type="submit" className="primary-btn" disabled={loading}>
-                  {loading ? 'Creating...' : 'Create Product'}
+                  {loading ? (editingProduct ? 'Updating...' : 'Creating...') : (editingProduct ? 'Update Product' : 'Create Product')}
                 </button>
               )}
             </div>

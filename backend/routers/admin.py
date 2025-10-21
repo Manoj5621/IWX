@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import Optional, List
 from models.user import UserResponse, UserUpdate, UserStats, UserCreate
-from models.product import ProductStats
+from models.product import ProductStats, ProductListResponse, ProductSearchFilters, ProductResponse, ProductStatus
 from models.order import OrderStats
 from models.security import SecurityStats, LoginHistory, SecurityEvent, DeviceInfo
 from services.user_service import UserService
@@ -11,6 +11,7 @@ from services.security_service import SecurityService
 from auth.dependencies import get_current_admin_user
 from models.user import UserInDB, UserRole, UserStatus
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +221,8 @@ async def get_dashboard_stats(current_user: UserInDB = Depends(get_current_admin
 
         # Broadcast stats update via WebSocket
         from routers.websocket import broadcast_dashboard_update
-        await broadcast_dashboard_update("stats_update", {
+
+        stats_data = {
             "totalSales": order_stats.total_revenue,
             "totalOrders": order_stats.total_orders,
             "totalCustomers": user_stats.total_users,
@@ -228,7 +230,8 @@ async def get_dashboard_stats(current_user: UserInDB = Depends(get_current_admin
             "revenue": order_stats.total_revenue,
             "visitors": 0,  # Would come from analytics
             "conversionRate": 0  # Would be calculated
-        })
+        }
+        await broadcast_dashboard_update("stats_update", stats_data)
 
         return {
             "users": user_stats.dict(),
@@ -441,4 +444,465 @@ async def run_security_scan(current_user: UserInDB = Depends(get_current_admin_u
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to run security scan"
+        )
+
+@router.get("/inventory/alerts")
+async def get_inventory_alerts(current_user: UserInDB = Depends(get_current_admin_user)):
+    """Get inventory alerts (Admin only)"""
+    try:
+        # Get products with low stock
+        from models.product import ProductSearchFilters
+        filters = ProductSearchFilters()  # Create default filters
+        products_response = await ProductService.list_products(filters=filters, limit=1000)
+        products = products_response.products
+        alerts = []
+
+        for product in products:
+            if hasattr(product, 'stock') and hasattr(product, 'low_stock_threshold') and product.stock <= product.low_stock_threshold:
+                alerts.append({
+                    "product": product.name,
+                    "stock": product.stock,
+                    "threshold": product.low_stock_threshold,
+                    "type": "low" if product.stock <= 5 else "warning"
+                })
+
+        # Broadcast inventory update
+        from routers.websocket import broadcast_inventory_update
+        await broadcast_inventory_update("alerts_update", {"alerts": alerts})
+
+        return alerts
+    except Exception as e:
+        logger.error(f"Get inventory alerts error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get inventory alerts"
+        )
+
+@router.get("/inventory/items")
+async def get_inventory_items(current_user: UserInDB = Depends(get_current_admin_user)):
+    """Get inventory items (Admin only)"""
+    try:
+        from models.product import ProductSearchFilters
+        filters = ProductSearchFilters()  # Create default filters
+        products_response = await ProductService.list_products(filters=filters, limit=1000)
+        products = products_response.products
+        inventory_items = []
+
+        for product in products:
+            inventory_items.append({
+                "name": product.name,
+                "stock": getattr(product, 'stock', 0),
+                "total": getattr(product, 'total_stock', getattr(product, 'stock', 0)),
+                "category": getattr(product, 'category', 'Unknown')
+            })
+
+        return inventory_items
+    except Exception as e:
+        logger.error(f"Get inventory items error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get inventory items"
+        )
+
+@router.get("/marketing/campaigns")
+async def get_marketing_campaigns(current_user: UserInDB = Depends(get_current_admin_user)):
+    """Get marketing campaigns (Admin only)"""
+    try:
+        # For now, return mock data - in real implementation, this would come from a marketing service
+        campaigns = [
+            {"name": "Summer Sale", "progress": 75, "budget": 5000, "spent": 3750, "status": "active"},
+            {"name": "New Collection", "progress": 30, "budget": 10000, "spent": 3000, "status": "active"},
+            {"name": "Email Newsletter", "progress": 100, "budget": 2000, "spent": 2000, "status": "completed"},
+            {"name": "Social Media Ads", "progress": 45, "budget": 8000, "spent": 3600, "status": "active"}
+        ]
+
+        # Broadcast marketing update
+        from routers.websocket import broadcast_marketing_campaigns_update
+        await broadcast_marketing_campaigns_update("campaigns_update", {"campaigns": campaigns})
+
+        return campaigns
+    except Exception as e:
+        logger.error(f"Get marketing campaigns error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get marketing campaigns"
+        )
+
+@router.get("/marketing/stats")
+async def get_marketing_stats(current_user: UserInDB = Depends(get_current_admin_user)):
+    """Get marketing statistics (Admin only)"""
+    try:
+        # Mock marketing stats - in real implementation, this would come from analytics service
+        stats = {
+            "roi": 245,
+            "clickRate": 3.7,
+            "impressions": 125000,
+            "engagements": 12450
+        }
+        # Broadcast marketing stats update
+        from routers.websocket import broadcast_marketing_stats_update
+        await broadcast_marketing_stats_update("stats_update", stats)
+
+        return stats
+    except Exception as e:
+        logger.error(f"Get marketing stats error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get marketing statistics"
+        )
+
+@router.get("/performance/metrics")
+async def get_performance_metrics(current_user: UserInDB = Depends(get_current_admin_user)):
+    """Get performance metrics (Admin only)"""
+    try:
+        # Mock performance data - in real implementation, this would come from monitoring service
+        metrics = {
+            "pageLoadTime": 2.3,
+            "bounceRate": 42.1,
+            "avgSession": 8.5
+        }
+
+        # Broadcast performance update
+        from routers.websocket import broadcast_performance_update
+        await broadcast_performance_update("metrics_update", metrics)
+
+        return metrics
+    except Exception as e:
+        logger.error(f"Get performance metrics error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get performance metrics"
+        )
+
+@router.get("/customers/satisfaction")
+async def get_customer_satisfaction(current_user: UserInDB = Depends(get_current_admin_user)):
+    """Get customer satisfaction data (Admin only)"""
+    try:
+        # Mock satisfaction data - in real implementation, this would come from feedback service
+        satisfaction = {
+            "overall": 4.7,
+            "support": 4.9,
+            "product": 4.6,
+            "delivery": 4.5
+        }
+
+        # Broadcast satisfaction update
+        from routers.websocket import broadcast_customer_satisfaction_update
+        await broadcast_customer_satisfaction_update("satisfaction_update", satisfaction)
+
+        return satisfaction
+    except Exception as e:
+        logger.error(f"Get customer satisfaction error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get customer satisfaction data"
+        )
+
+@router.get("/analytics/traffic")
+async def get_traffic_sources(current_user: UserInDB = Depends(get_current_admin_user)):
+    """Get traffic sources data (Admin only)"""
+    try:
+        # Mock traffic data - in real implementation, this would come from analytics service
+        traffic_sources = [
+            {"source": "Direct", "visitors": 12450, "percentage": 35},
+            {"source": "Organic Search", "visitors": 9870, "percentage": 28},
+            {"source": "Social Media", "visitors": 6540, "percentage": 18},
+            {"source": "Email", "visitors": 4320, "percentage": 12},
+            {"source": "Referral", "visitors": 2460, "percentage": 7}
+        ]
+
+        # Broadcast traffic update
+        from routers.websocket import broadcast_traffic_update
+        await broadcast_traffic_update("traffic_update", {"sources": traffic_sources})
+
+        return traffic_sources
+    except Exception as e:
+        logger.error(f"Get traffic sources error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get traffic sources data"
+        )
+
+@router.get("/system/status")
+async def get_system_status(current_user: UserInDB = Depends(get_current_admin_user)):
+    """Get system status (Admin only)"""
+    try:
+        # Mock system status - in real implementation, this would come from monitoring service
+        system_status = [
+            {"service": "Web Server", "status": "online", "uptime": "99.9%"},
+            {"service": "Database", "status": "online", "uptime": "99.8%"},
+            {"service": "Payment Gateway", "status": "warning", "uptime": "98.7%"},
+            {"service": "Email Service", "status": "online", "uptime": "99.5%"}
+        ]
+
+        # Broadcast system update
+        from routers.websocket import broadcast_system_status_update
+        await broadcast_system_status_update("status_update", {"services": system_status})
+
+        return system_status
+    except Exception as e:
+        logger.error(f"Get system status error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get system status"
+        )
+
+@router.get("/analytics/sales-data")
+async def get_sales_data(current_user: UserInDB = Depends(get_current_admin_user)):
+    """Get sales data for charts (Admin only)"""
+    try:
+        # Mock sales data - in real implementation, this would come from analytics service
+        sales_data = [
+            {"month": "Jan", "sales": 12000, "orders": 240},
+            {"month": "Feb", "sales": 19000, "orders": 320},
+            {"month": "Mar", "sales": 15000, "orders": 280},
+            {"month": "Apr", "sales": 22000, "orders": 380},
+            {"month": "May", "sales": 18000, "orders": 310},
+            {"month": "Jun", "sales": 25000, "orders": 420},
+            {"month": "Jul", "sales": 21000, "orders": 360},
+            {"month": "Aug", "sales": 28000, "orders": 470},
+            {"month": "Sep", "sales": 24000, "orders": 410},
+            {"month": "Oct", "sales": 31000, "orders": 520},
+            {"month": "Nov", "sales": 27000, "orders": 450},
+            {"month": "Dec", "sales": 35000, "orders": 580}
+        ]
+
+        # Broadcast sales data update
+        from routers.websocket import broadcast_dashboard_update
+        await broadcast_dashboard_update("sales_data_update", {"sales_data": sales_data})
+
+        return sales_data
+    except Exception as e:
+        logger.error(f"Get sales data error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get sales data"
+        )
+
+@router.get("/analytics/top-products")
+async def get_top_products(current_user: UserInDB = Depends(get_current_admin_user)):
+    """Get top products data (Admin only)"""
+    try:
+        # Mock top products data - in real implementation, this would come from analytics service
+        top_products = [
+            {"name": "Premium Leather Jacket", "sales": 1243, "revenue": 248600},
+            {"name": "Designer Silk Dress", "sales": 987, "revenue": 147825},
+            {"name": "Limited Edition Sneakers", "sales": 856, "revenue": 110928},
+            {"name": "Winter Parka", "sales": 743, "revenue": 96470},
+            {"name": "Casual Sneakers", "sales": 689, "revenue": 48230}
+        ]
+
+        # Broadcast top products update
+        from routers.websocket import broadcast_dashboard_update
+        await broadcast_dashboard_update("top_products_update", {"top_products": top_products})
+
+        return top_products
+    except Exception as e:
+        logger.error(f"Get top products error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get top products data"
+        )
+
+@router.get("/analytics/recent-orders")
+async def get_recent_orders(current_user: UserInDB = Depends(get_current_admin_user)):
+    """Get recent orders data (Admin only)"""
+    try:
+        # Mock recent orders data - in real implementation, this would come from order service
+        recent_orders = [
+            {"id": "IWX789012", "customer": "Emma Wilson", "date": "2025-01-15", "amount": 247.50, "status": "Delivered"},
+            {"id": "IWX789011", "customer": "James Brown", "date": "2025-01-15", "amount": 149.99, "status": "Shipped"},
+            {"id": "IWX789010", "customer": "Sophia Garcia", "date": "2025-01-14", "amount": 89.99, "status": "Processing"},
+            {"id": "IWX789009", "customer": "Michael Chen", "date": "2025-01-14", "amount": 325.75, "status": "Delivered"},
+            {"id": "IWX789008", "customer": "Olivia Martinez", "date": "2025-01-13", "amount": 159.98, "status": "Shipped"}
+        ]
+
+        # Broadcast recent orders update
+        from routers.websocket import broadcast_dashboard_update
+        await broadcast_dashboard_update("recent_orders_update", {"recent_orders": recent_orders})
+
+        return recent_orders
+    except Exception as e:
+        logger.error(f"Get recent orders error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get recent orders data"
+        )
+
+@router.get("/analytics/revenue-trend")
+async def get_revenue_trend(current_user: UserInDB = Depends(get_current_admin_user)):
+    """Get revenue trend data (Admin only)"""
+    try:
+        # Mock revenue trend data - in real implementation, this would come from analytics service
+        revenue_trend = [
+            {"day": "1", "value": 12000},
+            {"day": "2", "value": 18000},
+            {"day": "3", "value": 15000},
+            {"day": "4", "value": 22000},
+            {"day": "5", "value": 19000},
+            {"day": "6", "value": 25000},
+            {"day": "7", "value": 21000},
+            {"day": "8", "value": 28000},
+            {"day": "9", "value": 24000},
+            {"day": "10", "value": 31000},
+            {"day": "11", "value": 27000},
+            {"day": "12", "value": 35000},
+            {"day": "13", "value": 32000},
+            {"day": "14", "value": 38000}
+        ]
+
+        # Broadcast revenue trend update
+        from routers.websocket import broadcast_dashboard_update
+        await broadcast_dashboard_update("revenue_trend_update", {"revenue_trend": revenue_trend})
+
+        return revenue_trend
+    except Exception as e:
+        logger.error(f"Get revenue trend error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get revenue trend data"
+        )
+
+# Product Management Endpoints for Admin
+@router.get("/products", response_model=ProductListResponse)
+async def list_products_admin(
+    query: Optional[str] = None,
+    category: Optional[str] = None,
+    brand: Optional[str] = None,
+    product_status: Optional[str] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=1000),
+    sort_by: str = "created_at",
+    sort_order: str = Query("-1", regex="^(1|-1)$"),
+    current_user: UserInDB = Depends(get_current_admin_user)
+):
+    """List all products for admin management (Admin only)"""
+    try:
+        filters = ProductSearchFilters(
+            query=query,
+            category=category,
+            brand=brand,
+            status=product_status
+        )
+
+        result = await ProductService.list_products(
+            filters=filters,
+            skip=skip,
+            limit=limit,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
+        return result
+    except Exception as e:
+        logger.error(f"List products admin error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list products"
+        )
+
+@router.put("/products/{product_id}/status", response_model=ProductResponse)
+async def update_product_status_admin(
+    product_id: str,
+    status_data: dict,
+    current_user: UserInDB = Depends(get_current_admin_user)
+):
+    """Update product status (Admin only)"""
+    try:
+        if "status" not in status_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Status field is required"
+            )
+
+        status_value = status_data["status"]
+        if status_value not in [s.value for s in ProductStatus]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status. Must be one of: {[s.value for s in ProductStatus]}"
+            )
+
+        success = await ProductService.update_product_status(product_id, ProductStatus(status_value))
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+
+        # Get updated product
+        product = await ProductService.get_product_by_id(product_id)
+        return ProductResponse(**product.dict())
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update product status admin error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update product status"
+        )
+
+@router.delete("/products/{product_id}")
+async def delete_product_admin(
+    product_id: str,
+    current_user: UserInDB = Depends(get_current_admin_user)
+):
+    """Delete product (Admin only)"""
+    try:
+        deleted = await ProductService.delete_product(product_id)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+        return {"message": "Product deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete product admin error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete product"
+        )
+
+@router.post("/products/bulk-status-update")
+async def bulk_update_product_status_admin(
+    update_data: dict,
+    current_user: UserInDB = Depends(get_current_admin_user)
+):
+    """Bulk update product status (Admin only)"""
+    try:
+        if "product_ids" not in update_data or "status" not in update_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="product_ids and status fields are required"
+            )
+
+        product_ids = update_data["product_ids"]
+        status_value = update_data["status"]
+
+        if not isinstance(product_ids, list) or len(product_ids) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="product_ids must be a non-empty list"
+            )
+
+        if status_value not in [s.value for s in ProductStatus]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status. Must be one of: {[s.value for s in ProductStatus]}"
+            )
+
+        updates = {"status": ProductStatus(status_value), "updated_at": datetime.utcnow()}
+        modified_count = await ProductService.bulk_update_products(product_ids, updates)
+
+        return {
+            "message": f"Updated {modified_count} products successfully",
+            "modified_count": modified_count
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Bulk update product status admin error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to bulk update product status"
         )

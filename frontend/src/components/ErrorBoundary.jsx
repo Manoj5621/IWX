@@ -1,6 +1,6 @@
 // ErrorBoundary.jsx
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import './ErrorBoundary.css';
 
 class ErrorBoundary extends React.Component {

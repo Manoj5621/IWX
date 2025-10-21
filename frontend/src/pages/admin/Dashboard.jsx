@@ -19,6 +19,27 @@ const AdminDashboard = () => {
   const dispatch = useDispatch();
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [websocketConnected, setWebsocketConnected] = useState(false);
+
+  // Product management states
+  const [products, setProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [productFilters, setProductFilters] = useState({
+    category: [],
+    size: [],
+    color: [],
+    price: []
+  });
+  const [productPage, setProductPage] = useState(1);
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [bulkStatus, setBulkStatus] = useState('');
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrev, setHasPrev] = useState(false);
+  const [selectedSort, setSelectedSort] = useState('recommended');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
   const [securityStats, setSecurityStats] = useState({
     total_login_attempts: 0,
     successful_logins: 0,
@@ -58,31 +79,21 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   const [performanceData, setPerformanceData] = useState({
-    pageLoadTime: 2.3,
-    bounceRate: 42.1,
-    avgSession: 8.5
-    });
+    pageLoadTime: 0,
+    bounceRate: 0,
+    avgSession: 0
+  });
 
-    const [satisfactionData, setSatisfactionData] = useState({
-    overall: 4.7,
-    support: 4.9,
-    product: 4.6,
-    delivery: 4.5
-    });
+  const [satisfactionData, setSatisfactionData] = useState({
+    overall: 0,
+    support: 0,
+    product: 0,
+    delivery: 0
+  });
 
-   const [inventoryAlerts, setInventoryAlerts] = useState([
-    { product: 'Premium Leather Jacket', stock: 12, threshold: 20, type: 'low' },
-    { product: 'Designer Silk Dress', stock: 45, threshold: 50, type: 'warning' },
-    { product: 'Limited Edition Sneakers', stock: 3, threshold: 10, type: 'low' },
-    { product: 'Winter Parka', stock: 78, threshold: 30, type: 'info' }
-    ]);
+  const [inventoryAlerts, setInventoryAlerts] = useState([]);
 
-    const [campaigns, setCampaigns] = useState([
-    { name: 'Summer Sale', progress: 75, budget: 5000, spent: 3750, status: 'active' },
-    { name: 'New Collection', progress: 30, budget: 10000, spent: 3000, status: 'active' },
-    { name: 'Email Newsletter', progress: 100, budget: 2000, spent: 2000, status: 'completed' },
-    { name: 'Social Media Ads', progress: 45, budget: 8000, spent: 3600, status: 'active' }
-    ]);
+  const [campaigns, setCampaigns] = useState([]);
 
     // Line chart data for revenue trend
     const lineChartData = [
@@ -102,46 +113,43 @@ const AdminDashboard = () => {
     { day: '14', value: 38000 }
     ];
 
-    const [inventoryItems, setInventoryItems] = useState([
-  { name: 'Premium Leather Jacket', stock: 12, total: 100, category: 'Clothing' },
-  { name: 'Designer Silk Dress', stock: 45, total: 150, category: 'Clothing' },
-  { name: 'Limited Edition Sneakers', stock: 3, total: 50, category: 'Footwear' },
-  { name: 'Winter Parka', stock: 78, total: 100, category: 'Clothing' },
-  { name: 'Casual Sneakers', stock: 156, total: 200, category: 'Footwear' },
-  { name: 'Luxury Handbag', stock: 23, total: 75, category: 'Accessories' }
-]);
+  const [inventoryItems, setInventoryItems] = useState([]);
 
-const [marketingData, setMarketingData] = useState({
-  roi: 245,
-  clickRate: 3.7,
-  impressions: 125000,
-  engagements: 12450
-});
+  const [marketingData, setMarketingData] = useState({
+    roi: 0,
+    clickRate: 0,
+    impressions: 0,
+    engagements: 0
+  });
 
-const [settings, setSettings] = useState({
-  emailNotifications: true,
-  smsAlerts: false,
-  autoBackup: true,
-  twoFactorAuth: true,
-  darkMode: false
-});
+  const [settings, setSettings] = useState({
+    emailNotifications: true,
+    smsAlerts: false,
+    autoBackup: true,
+    twoFactorAuth: true,
+    darkMode: false
+  });
 
-const [users, setUsers] = useState([]);
-const [loadingUsers, setLoadingUsers] = useState(true);
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  const [customers, setCustomers] = useState([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(true);
 
-const [financeData, setFinanceData] = useState({
-  revenue: 125430,
-  expenses: 89450,
-  profit: 35980,
-  growth: 12.5
-});
+  const [financeData, setFinanceData] = useState({
+    revenue: 0,
+    expenses: 0,
+    profit: 0,
+    growth: 0
+  });
 
-const [systemStatus, setSystemStatus] = useState([
-  { service: 'Web Server', status: 'online', uptime: '99.9%' },
-  { service: 'Database', status: 'online', uptime: '99.8%' },
-  { service: 'Payment Gateway', status: 'warning', uptime: '98.7%' },
-  { service: 'Email Service', status: 'online', uptime: '99.5%' }
-]);
+  const [systemStatus, setSystemStatus] = useState([]);
+  const [trafficSources, setTrafficSources] = useState([]);
+
+  // Real-time data states
+  const [salesData, setSalesData] = useState([]);
+  const [topProducts, setTopProducts] = useState([]);
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [revenueTrend, setRevenueTrend] = useState([]);
 
 // Toggle functionality for settings
 const handleSettingChange = (settingKey) => {
@@ -155,30 +163,98 @@ const handleSettingChange = (settingKey) => {
   useEffect(() => {
     loadDashboardData();
     loadUsersData();
+    loadCustomersData();
     loadSecurityData();
+    loadInventoryData();
+    loadMarketingData();
+    loadPerformanceData();
+    loadCustomerSatisfactionData();
+    loadTrafficSourcesData();
+    loadSystemStatusData();
+    loadSalesData();
+    loadTopProductsData();
+    loadRecentOrdersData();
+    loadRevenueTrendData();
+  }, []); // Load data only once on mount
 
-    // Connect to WebSocket for real-time updates
+  // Load products data when section changes to products
+  useEffect(() => {
+    if (activeSection === 'products') {
+      loadProductsData();
+    }
+  }, [activeSection, productFilters, selectedSort, productPage]);
+
+  // No polling - rely on WebSocket for real-time updates
+  // If WebSocket fails, use the initial data loaded on mount
+
+  // Connect to WebSocket for real-time updates (only once on mount)
+  useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      const wsConnection = websocketService.connect('dashboard',
+      const wsConnection = websocketService.connectAdminDashboard(
         (data) => {
-          // Handle real-time updates
+          // Handle real-time updates from all channels
           if (data.type === 'stats_update') {
             setStats(prev => ({ ...prev, ...data.data }));
           } else if (data.type === 'user_update') {
             // Handle user updates (create, update, delete)
             handleUserUpdate(data.data);
+          } else if (data.type === 'product_update') {
+            // Handle product updates
+            if (activeSection === 'products') {
+              loadProductsData();
+            }
+          } else if (data.type === 'inventory_update') {
+            loadInventoryData();
+          } else if (data.type === 'campaigns_update') {
+            loadMarketingData();
+          } else if (data.type === 'metrics_update') {
+            loadPerformanceData();
+          } else if (data.type === 'satisfaction_update') {
+            loadCustomerSatisfactionData();
+          } else if (data.type === 'traffic_update') {
+            loadTrafficSourcesData();
+          } else if (data.type === 'status_update') {
+            loadSystemStatusData();
+          } else if (data.type === 'sales_data_update') {
+            setSalesData(data.data.sales_data);
+          } else if (data.type === 'top_products_update') {
+            setTopProducts(data.data.top_products);
+          } else if (data.type === 'recent_orders_update') {
+            setRecentOrders(data.data.recent_orders);
+          } else if (data.type === 'revenue_trend_update') {
+            setRevenueTrend(data.data.revenue_trend);
+          } else if (data.type === 'security_update') {
+            // Handle security updates
+            if (activeSection === 'security') {
+              loadSecurityData();
+            }
           }
         },
-        (error) => console.error('WebSocket error:', error),
-        () => console.log('WebSocket disconnected')
+        (error) => {
+          console.error('WebSocket error:', error);
+          setWebsocketConnected(false);
+        },
+        () => {
+          console.log('WebSocket disconnected - will attempt to reconnect');
+          setWebsocketConnected(false);
+          // Don't manually reconnect here, let the service handle it
+        }
       );
 
+      // Set connection status when WebSocket opens
+      if (wsConnection) {
+        wsConnection.addEventListener('open', () => {
+          setWebsocketConnected(true);
+        });
+      }
+
       return () => {
-        websocketService.disconnect('dashboard');
+        websocketService.disconnectAdminDashboard();
       };
     }
-  }, []);
+  }, []); // Remove activeSection dependency to prevent reconnection
+
 
   const loadDashboardData = async () => {
     try {
@@ -194,8 +270,12 @@ const handleSettingChange = (settingKey) => {
       });
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
-      // Show error message to user instead of keeping mock data
-      alert('Failed to load dashboard data. Please check your connection and try again.');
+      // If WebSocket is disconnected, show a more informative message
+      if (!websocketConnected) {
+        console.log('WebSocket disconnected, using REST API fallback');
+      } else {
+        // Show error message to user instead of keeping mock data
+      }
     } finally {
       setLoading(false);
     }
@@ -222,9 +302,31 @@ const handleSettingChange = (settingKey) => {
       })));
     } catch (error) {
       console.error('Failed to load users data:', error);
-      alert('Failed to load users data. Please check your connection and try again.');
     } finally {
       setLoadingUsers(false);
+    }
+  };
+
+  const loadCustomersData = async () => {
+    try {
+      const customersData = await adminAPI.getUsers('customer'); // Filter by customer role
+      setCustomers(customersData.map(customer => ({
+        id: customer.id,
+        name: `${capitalizeName(customer.first_name || '')} ${capitalizeName(customer.last_name || '')}`.trim() || customer.email,
+        first_name: customer.first_name || '',
+        last_name: customer.last_name || '',
+        role: customer.role || 'customer', // Ensure role is included
+        email: customer.email,
+        lastActive: customer.last_login ? new Date(customer.last_login).toLocaleString() : 'Never',
+        status: customer.status,
+        created_at: customer.created_at,
+        totalOrders: 0, // Would come from order stats
+        totalSpent: 0 // Would come from order stats
+      })));
+    } catch (error) {
+      console.error('Failed to load customers data:', error);
+    } finally {
+      setLoadingCustomers(false);
     }
   };
 
@@ -244,9 +346,253 @@ const handleSettingChange = (settingKey) => {
       setConnectedDevices(devices);
     } catch (error) {
       console.error('Failed to load security data:', error);
-      alert('Failed to load security data. Please check your connection and try again.');
     } finally {
       setLoadingSecurity(false);
+    }
+  };
+
+  const loadInventoryData = async () => {
+    try {
+      const [alerts, items] = await Promise.all([
+        adminAPI.getInventoryAlerts(),
+        adminAPI.getInventoryItems()
+      ]);
+      setInventoryAlerts(alerts);
+      setInventoryItems(items);
+    } catch (error) {
+      console.error('Failed to load inventory data:', error);
+    }
+  };
+
+  const loadMarketingData = async () => {
+    try {
+      const [campaigns, stats] = await Promise.all([
+        adminAPI.getMarketingCampaigns(),
+        adminAPI.getMarketingStats()
+      ]);
+      setCampaigns(campaigns);
+      setMarketingData(stats);
+    } catch (error) {
+      console.error('Failed to load marketing data:', error);
+    }
+  };
+
+  const loadPerformanceData = async () => {
+    try {
+      const metrics = await adminAPI.getPerformanceMetrics();
+      setPerformanceData(metrics);
+    } catch (error) {
+      console.error('Failed to load performance data:', error);
+    }
+  };
+
+  const loadCustomerSatisfactionData = async () => {
+    try {
+      const satisfaction = await adminAPI.getCustomerSatisfaction();
+      setSatisfactionData(satisfaction);
+    } catch (error) {
+      console.error('Failed to load customer satisfaction data:', error);
+    }
+  };
+
+  const loadTrafficSourcesData = async () => {
+    try {
+      const traffic = await adminAPI.getTrafficSources();
+      setTrafficSources(traffic);
+    } catch (error) {
+      console.error('Failed to load traffic sources data:', error);
+    }
+  };
+
+  const loadSystemStatusData = async () => {
+    try {
+      const status = await adminAPI.getSystemStatus();
+      setSystemStatus(status);
+    } catch (error) {
+      console.error('Failed to load system status data:', error);
+    }
+  };
+
+  const loadSalesData = async () => {
+    try {
+      const data = await adminAPI.getSalesData();
+      setSalesData(data);
+    } catch (error) {
+      console.error('Failed to load sales data:', error);
+    }
+  };
+
+  const loadTopProductsData = async () => {
+    try {
+      const data = await adminAPI.getTopProducts();
+      setTopProducts(data);
+    } catch (error) {
+      console.error('Failed to load top products data:', error);
+    }
+  };
+
+  const loadRecentOrdersData = async () => {
+    try {
+      const data = await adminAPI.getRecentOrders();
+      setRecentOrders(data);
+    } catch (error) {
+      console.error('Failed to load recent orders data:', error);
+    }
+  };
+
+  const loadRevenueTrendData = async () => {
+    try {
+      const data = await adminAPI.getRevenueTrend();
+      setRevenueTrend(data);
+    } catch (error) {
+      console.error('Failed to load revenue trend data:', error);
+    }
+  };
+
+  const loadProductsData = async () => {
+    try {
+      setLoadingProducts(true);
+      const filters = {
+        category: productFilters.category.length > 0 ? productFilters.category : undefined,
+        sizes: productFilters.size.length > 0 ? productFilters.size : undefined,
+        colors: productFilters.color.length > 0 ? productFilters.color : undefined,
+        min_price: productFilters.price.includes('under50') ? 0 :
+                  productFilters.price.includes('50to100') ? 50 :
+                  productFilters.price.includes('100to150') ? 100 : undefined,
+        max_price: productFilters.price.includes('under50') ? 50 :
+                  productFilters.price.includes('50to100') ? 100 :
+                  productFilters.price.includes('100to150') ? 150 :
+                  productFilters.price.includes('over150') ? undefined : undefined,
+        skip: (productPage - 1) * 12,
+        limit: 12,
+        sort_by: selectedSort === 'recommended' ? 'created_at' :
+                selectedSort === 'priceLowHigh' ? 'price' :
+                selectedSort === 'priceHighLow' ? 'price' :
+                selectedSort === 'newest' ? 'created_at' :
+                selectedSort === 'rating' ? 'rating' : 'created_at',
+        sort_order: selectedSort === 'priceHighLow' ? -1 : -1
+      };
+
+      const response = await adminAPI.getProducts(filters);
+      setProducts(response.products || []);
+      setTotalProducts(response.total || 0);
+      setHasNext(response.has_next || false);
+      setHasPrev(response.has_prev || false);
+    } catch (error) {
+      console.error('Failed to load products data:', error);
+      // Handle 529 status code specifically
+      if (error.response?.status === 529) {
+        console.log('Server overloaded, retrying in 2 seconds...');
+        setTimeout(() => loadProductsData(), 2000);
+      } else {
+        // Show user-friendly error message for other errors
+      }
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+  const handleFilterToggle = (filterType, value) => {
+    setProductFilters(prev => {
+      const newFilters = { ...prev };
+      if (newFilters[filterType].includes(value)) {
+        newFilters[filterType] = newFilters[filterType].filter(item => item !== value);
+      } else {
+        newFilters[filterType] = [...newFilters[filterType], value];
+      }
+      return newFilters;
+    });
+  };
+
+  const clearAllFilters = () => {
+    setProductFilters({
+      category: [],
+      size: [],
+      color: [],
+      price: []
+    });
+    setSelectedSort('recommended');
+  };
+
+  const paginate = (pageNumber) => setProductPage(pageNumber);
+
+  const handleEditProduct = (product) => {
+    setEditingProduct(product);
+    setIsAddProductOpen(true);
+  };
+
+  const handleSelectProduct = (productId) => {
+    setSelectedProducts(prev =>
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  const handleSelectAllProducts = () => {
+    if (selectedProducts.length === products.length) {
+      setSelectedProducts([]);
+    } else {
+      setSelectedProducts(products.map(p => p.id));
+    }
+  };
+
+  const handleStatusChange = async (productId, newStatus) => {
+    try {
+      await adminAPI.updateProductStatus(productId, newStatus);
+      // Update local state
+      setProducts(prev => prev.map(p =>
+        p.id === productId ? { ...p, status: newStatus } : p
+      ));
+    } catch (error) {
+      console.error('Failed to update product status:', error);
+      if (error.response?.status === 529) {
+        console.log('Server overloaded, retrying status update in 2 seconds...');
+        setTimeout(() => handleStatusChange(productId, newStatus), 2000);
+      } else {
+        alert(`Failed to update product status: ${error.response?.data?.detail || error.message}`);
+      }
+    }
+  };
+
+  const handleDeleteProduct = async (productId) => {
+    if (window.confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
+      try {
+        await adminAPI.deleteProduct(productId);
+        setProducts(prev => prev.filter(p => p.id !== productId));
+        setSelectedProducts(prev => prev.filter(id => id !== productId));
+      } catch (error) {
+        console.error('Failed to delete product:', error);
+        if (error.response?.status === 529) {
+          console.log('Server overloaded, retrying delete in 2 seconds...');
+          setTimeout(() => handleDeleteProduct(productId), 2000);
+        } else {
+          alert(`Failed to delete product: ${error.response?.data?.detail || error.message}`);
+        }
+      }
+    }
+  };
+
+  const handleBulkStatusUpdate = async () => {
+    if (!bulkStatus || selectedProducts.length === 0) return;
+
+    try {
+      await adminAPI.bulkUpdateProductStatus(selectedProducts, bulkStatus);
+      // Update local state
+      setProducts(prev => prev.map(p =>
+        selectedProducts.includes(p.id) ? { ...p, status: bulkStatus } : p
+      ));
+      setSelectedProducts([]);
+      setBulkStatus('');
+      alert(`Successfully updated ${selectedProducts.length} products`);
+    } catch (error) {
+      console.error('Failed to bulk update products:', error);
+      if (error.response?.status === 529) {
+        console.log('Server overloaded, retrying bulk update in 2 seconds...');
+        setTimeout(() => handleBulkStatusUpdate(), 2000);
+      } else {
+        alert(`Failed to update products: ${error.response?.data?.detail || error.message}`);
+      }
     }
   };
 
@@ -279,6 +625,24 @@ const handleSettingChange = (settingKey) => {
         name: `${capitalizeName(data.user.first_name || '')} ${capitalizeName(data.user.last_name || '')}`.trim() || data.user.email
       };
       setUsers(prev => [newUser, ...prev]);
+
+      // If the new user is a customer, add to customers list
+      if (data.user.role === 'customer') {
+        const newCustomer = {
+          id: data.user.id,
+          first_name: data.user.first_name || '',
+          last_name: data.user.last_name || '',
+          role: data.user.role,
+          email: data.user.email,
+          lastActive: data.user.last_login ? new Date(data.user.last_login).toLocaleString() : 'Never',
+          status: data.user.status,
+          created_at: data.user.created_at,
+          name: `${capitalizeName(data.user.first_name || '')} ${capitalizeName(data.user.last_name || '')}`.trim() || data.user.email,
+          totalOrders: 0,
+          totalSpent: 0
+        };
+        setCustomers(prev => [newCustomer, ...prev]);
+      }
     } else if (data.action === 'update') {
       setUsers(prev => prev.map(user =>
         user.id === data.user.id ? {
@@ -292,8 +656,28 @@ const handleSettingChange = (settingKey) => {
           name: `${capitalizeName(data.user.first_name || user.first_name)} ${capitalizeName(data.user.last_name || user.last_name)}`.trim() || (data.user.email || user.email)
         } : user
       ));
+
+      // Update customers list if the user is a customer
+      setCustomers(prev => prev.map(customer =>
+        customer.id === data.user.id ? {
+          ...customer,
+          first_name: data.user.first_name || customer.first_name,
+          last_name: data.user.last_name || customer.last_name,
+          role: data.user.role || customer.role,
+          email: data.user.email || customer.email,
+          lastActive: data.user.last_login ? new Date(data.user.last_login).toLocaleString() : customer.lastActive,
+          status: data.user.status || customer.status,
+          name: `${capitalizeName(data.user.first_name || customer.first_name)} ${capitalizeName(data.user.last_name || customer.last_name)}`.trim() || (data.user.email || customer.email)
+        } : customer
+      ));
+
+      // If role changed from customer to something else, remove from customers
+      if (data.user.role !== 'customer') {
+        setCustomers(prev => prev.filter(customer => customer.id !== data.user.id));
+      }
     } else if (data.action === 'delete') {
       setUsers(prev => prev.filter(user => user.id !== data.user_id));
+      setCustomers(prev => prev.filter(customer => customer.id !== data.user_id));
     }
   };
 
@@ -314,6 +698,7 @@ const handleSettingChange = (settingKey) => {
       try {
         await adminAPI.deleteUser(userId);
         setUsers(prev => prev.filter(user => user.id !== userId));
+        setCustomers(prev => prev.filter(customer => customer.id !== userId));
       } catch (error) {
         console.error('Failed to delete user:', error);
         alert(`Failed to delete user: ${error.response?.data?.detail || error.message}`);
@@ -339,6 +724,20 @@ const handleSettingChange = (settingKey) => {
             name: `${capitalizeName(cleanedUserData.first_name || user.first_name)} ${capitalizeName(cleanedUserData.last_name || user.last_name)}`.trim() || cleanedUserData.email
           } : user
         ));
+
+        // Update customers list if editing a customer
+        if (cleanedUserData.role === 'customer') {
+          setCustomers(prev => prev.map(customer =>
+            customer.id === editingUser.id ? {
+              ...customer,
+              ...cleanedUserData,
+              name: `${capitalizeName(cleanedUserData.first_name || customer.first_name)} ${capitalizeName(cleanedUserData.last_name || customer.last_name)}`.trim() || cleanedUserData.email
+            } : customer
+          ));
+        } else {
+          // Remove from customers if role changed from customer
+          setCustomers(prev => prev.filter(customer => customer.id !== editingUser.id));
+        }
       } else {
         const newUser = await adminAPI.createUser(cleanedUserData);
         console.log('Created user response:', newUser); // Debug log
@@ -347,6 +746,17 @@ const handleSettingChange = (settingKey) => {
           name: `${capitalizeName(newUser.first_name || '')} ${capitalizeName(newUser.last_name || '')}`.trim() || newUser.email
         };
         setUsers(prev => [formattedUser, ...prev]);
+
+        // Add to customers list if role is customer
+        if (newUser.role === 'customer') {
+          const formattedCustomer = {
+            ...newUser,
+            name: `${capitalizeName(newUser.first_name || '')} ${capitalizeName(newUser.last_name || '')}`.trim() || newUser.email,
+            totalOrders: 0,
+            totalSpent: 0
+          };
+          setCustomers(prev => [formattedCustomer, ...prev]);
+        }
       }
       setShowUserModal(false);
       setEditingUser(null);
@@ -391,45 +801,55 @@ const handleSettingChange = (settingKey) => {
     };
   };
 
-  // Sample data for charts
-  const salesData = [
-    { month: 'Jan', sales: 12000, orders: 240 },
-    { month: 'Feb', sales: 19000, orders: 320 },
-    { month: 'Mar', sales: 15000, orders: 280 },
-    { month: 'Apr', sales: 22000, orders: 380 },
-    { month: 'May', sales: 18000, orders: 310 },
-    { month: 'Jun', sales: 25000, orders: 420 },
-    { month: 'Jul', sales: 21000, orders: 360 },
-    { month: 'Aug', sales: 28000, orders: 470 },
-    { month: 'Sep', sales: 24000, orders: 410 },
-    { month: 'Oct', sales: 31000, orders: 520 },
-    { month: 'Nov', sales: 27000, orders: 450 },
-    { month: 'Dec', sales: 35000, orders: 580 }
+  // Use real data from state instead of mock data
+
+  // Filter options
+  const filterOptions = {
+    category: [
+      { label: 'Woman', value: 'woman' },
+      { label: 'Man', value: 'man' },
+      { label: 'Kids', value: 'kids' },
+      { label: 'Accessories', value: 'accessories' }
+    ],
+    size: [
+      { label: 'XS', value: 'xs' },
+      { label: 'S', value: 's' },
+      { label: 'M', value: 'm' },
+      { label: 'L', value: 'l' },
+      { label: 'XL', value: 'xl' }
+    ],
+    color: [
+      { label: 'Black', value: 'black' },
+      { label: 'White', value: 'white' },
+      { label: 'Navy', value: 'navy' },
+      { label: 'Beige', value: 'beige' },
+      { label: 'Green', value: 'green' },
+      { label: 'Red', value: 'red' }
+    ],
+    price: [
+      { label: 'Under $50', value: 'under50' },
+      { label: '$50 - $100', value: '50to100' },
+      { label: '$100 - $150', value: '100to150' },
+      { label: 'Over $150', value: 'over150' }
+    ]
+  };
+
+  const sortOptions = [
+    { label: 'Recommended', value: 'recommended' },
+    { label: 'Price: Low to High', value: 'priceLowHigh' },
+    { label: 'Price: High to Low', value: 'priceHighLow' },
+    { label: 'Newest', value: 'newest' },
+    { label: 'Rating', value: 'rating' }
   ];
 
-  const topProducts = [
-    { name: 'Premium Leather Jacket', sales: 1243, revenue: 248600 },
-    { name: 'Designer Silk Dress', sales: 987, revenue: 147825 },
-    { name: 'Limited Edition Sneakers', sales: 856, revenue: 110928 },
-    { name: 'Winter Parka', sales: 743, revenue: 96470 },
-    { name: 'Casual Sneakers', sales: 689, revenue: 48230 }
-  ];
+  const totalPages = Math.ceil(totalProducts / 12);
 
-  const recentOrders = [
-    { id: 'IWX789012', customer: 'Emma Wilson', date: '2025-01-15', amount: 247.50, status: 'Delivered' },
-    { id: 'IWX789011', customer: 'James Brown', date: '2025-01-15', amount: 149.99, status: 'Shipped' },
-    { id: 'IWX789010', customer: 'Sophia Garcia', date: '2025-01-14', amount: 89.99, status: 'Processing' },
-    { id: 'IWX789009', customer: 'Michael Chen', date: '2025-01-14', amount: 325.75, status: 'Delivered' },
-    { id: 'IWX789008', customer: 'Olivia Martinez', date: '2025-01-13', amount: 159.98, status: 'Shipped' }
-  ];
-
-  const trafficSources = [
-    { source: 'Direct', visitors: 12450, percentage: 35 },
-    { source: 'Organic Search', visitors: 9870, percentage: 28 },
-    { source: 'Social Media', visitors: 6540, percentage: 18 },
-    { source: 'Email', visitors: 4320, percentage: 12 },
-    { source: 'Referral', visitors: 2460, percentage: 7 }
-  ];
+  // Render star ratings
+  const renderStars = (rating) => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <span key={i} className={i < Math.floor(rating) ? "star filled" : "star"}>★</span>
+    ));
+  };
 
   // Function to render animated value
   const AnimatedValue = ({ value, prefix = '', suffix = '' }) => {
@@ -558,6 +978,12 @@ const handleSettingChange = (settingKey) => {
           <div className="admin-notifications">
             <button className="notification-btn">🔔</button>
             <span className="notification-count">3</span>
+          </div>
+          <div className="websocket-status">
+            <div className={`status-indicator ${websocketConnected ? 'connected' : 'disconnected'}`}>
+              <div className="status-dot"></div>
+              <span>{websocketConnected ? 'Live' : 'Offline'}</span>
+            </div>
           </div>
           <div className="admin-profile">
             <div className="profile-avatar">AJ</div>
@@ -890,7 +1316,7 @@ const handleSettingChange = (settingKey) => {
                   <div className="metric-content">
                     <h3>Total Revenue</h3>
                     <p className="metric-value">
-                      ${loading ? '...' : <AnimatedValue value={stats.totalSales + stats.revenue} />}
+                      ₹{loading ? '...' : <AnimatedValue value={stats.totalSales + stats.revenue} />}
                     </p>
                     <div className="metric-trend up">
                       <span>↑ 12.5%</span> from last month
@@ -943,35 +1369,37 @@ const handleSettingChange = (settingKey) => {
                 <div className="chart-card">
                   <h3>Sales Overview</h3>
                   <div className="chart-container">
-                    {salesData.map((item, index) => (
+                    {salesData.length > 0 ? salesData.map((item, index) => (
                       <div key={index} className="chart-bar-container">
-                        <motion.div 
+                        <motion.div
                           className="chart-bar"
                           initial={{ height: 0 }}
                           animate={{ height: `${(item.sales / 35000) * 100}%` }}
                           transition={{ duration: 1, delay: index * 0.1 }}
                         >
-                          <div className="bar-value">${(item.sales / 1000).toFixed(0)}k</div>
+                          <div className="bar-value">₹{(item.sales / 1000).toFixed(0)}k</div>
                         </motion.div>
                         <span className="bar-label">{item.month}</span>
                       </div>
-                    ))}
+                    )) : (
+                      <div style={{textAlign: 'center', padding: '20px', color: '#666'}}>Loading sales data...</div>
+                    )}
                   </div>
                 </div>
 
                 <div className="chart-card">
                   <h3>Revenue vs Orders</h3>
                   <div className="dual-chart-container">
-                    {salesData.map((item, index) => (
+                    {salesData.length > 0 ? salesData.map((item, index) => (
                       <div key={index} className="dual-chart-bar-container">
                         <div className="dual-bars">
-                          <motion.div 
+                          <motion.div
                             className="revenue-bar"
                             initial={{ height: 0 }}
                             animate={{ height: `${(item.sales / 35000) * 100}%` }}
                             transition={{ duration: 1, delay: index * 0.1 }}
                           ></motion.div>
-                          <motion.div 
+                          <motion.div
                             className="orders-bar"
                             initial={{ height: 0 }}
                             animate={{ height: `${(item.orders / 600) * 100}%` }}
@@ -980,7 +1408,9 @@ const handleSettingChange = (settingKey) => {
                         </div>
                         <span className="bar-label">{item.month}</span>
                       </div>
-                    ))}
+                    )) : (
+                      <div style={{textAlign: 'center', padding: '20px', color: '#666'}}>Loading chart data...</div>
+                    )}
                   </div>
                   <div className="chart-legend">
                     <div className="legend-item">
@@ -1000,20 +1430,22 @@ const handleSettingChange = (settingKey) => {
                 <div className="activity-card">
                   <h3>Recent Orders</h3>
                   <div className="activity-list">
-                    {recentOrders.map((order, index) => (
+                    {recentOrders.length > 0 ? recentOrders.map((order, index) => (
                       <div key={index} className="activity-item">
                         <div className="activity-info">
                           <strong>#{order.id}</strong>
                           <span>{order.customer}</span>
                         </div>
                         <div className="activity-details">
-                          <span>${order.amount}</span>
+                          <span>₹{order.amount}</span>
                           <span className={`status ${order.status.toLowerCase()}`}>
                             {order.status}
                           </span>
                         </div>
                       </div>
-                    ))}
+                    )) : (
+                      <div style={{textAlign: 'center', padding: '20px', color: '#666'}}>Loading recent orders...</div>
+                    )}
                   </div>
                   <button className="view-all-btn">View All Orders</button>
                 </div>
@@ -1021,7 +1453,7 @@ const handleSettingChange = (settingKey) => {
                 <div className="activity-card">
                   <h3>Top Products</h3>
                   <div className="products-list">
-                    {topProducts.map((product, index) => (
+                    {topProducts.length > 0 ? topProducts.map((product, index) => (
                       <div key={index} className="product-item">
                         <div className="product-rank">{index + 1}</div>
                         <div className="product-info">
@@ -1029,10 +1461,12 @@ const handleSettingChange = (settingKey) => {
                           <span>{product.sales} sales</span>
                         </div>
                         <div className="product-revenue">
-                          ${product.revenue.toLocaleString()}
+                          ₹{product.revenue.toLocaleString()}
                         </div>
                       </div>
-                    ))}
+                    )) : (
+                      <div style={{textAlign: 'center', padding: '20px', color: '#666'}}>Loading top products...</div>
+                    )}
                   </div>
                   <button className="view-all-btn">View All Products</button>
                 </div>
@@ -1042,14 +1476,14 @@ const handleSettingChange = (settingKey) => {
               <div className="traffic-card">
                 <h3>Traffic Sources</h3>
                 <div className="traffic-sources">
-                  {trafficSources.map((source, index) => (
+                  {trafficSources.length > 0 ? trafficSources.map((source, index) => (
                     <div key={index} className="traffic-item">
                       <div className="traffic-source">
                         <span>{source.source}</span>
                         <span>{source.visitors.toLocaleString()} visitors</span>
                       </div>
                       <div className="traffic-bar-container">
-                        <motion.div 
+                        <motion.div
                           className="traffic-bar"
                           initial={{ width: 0 }}
                           animate={{ width: `${source.percentage}%` }}
@@ -1058,75 +1492,77 @@ const handleSettingChange = (settingKey) => {
                       </div>
                       <span className="traffic-percentage">{source.percentage}%</span>
                     </div>
-                  ))}
+                  )) : (
+                    <div style={{textAlign: 'center', padding: '20px', color: '#666'}}>Loading traffic data...</div>
+                  )}
                 </div>
               </div>
 
             {/* Quick Stats */}
             <div className="quick-stats-grid">
             <div className="quick-stat-card" style={{borderLeftColor: '#4caf50'}}>
-                <div className="quick-stat-value">98.7%</div>
-                <div className="quick-stat-label">Uptime</div>
+                <div className="quick-stat-value">{performanceData.pageLoadTime > 0 ? `${performanceData.pageLoadTime}s` : '...'}</div>
+                <div className="quick-stat-label">Page Load Time</div>
             </div>
             <div className="quick-stat-card" style={{borderLeftColor: '#2196f3'}}>
-                <div className="quick-stat-value">24h</div>
-                <div className="quick-stat-label">Avg. Response Time</div>
+                <div className="quick-stat-value">{performanceData.avgSession > 0 ? `${performanceData.avgSession}m` : '...'}</div>
+                <div className="quick-stat-label">Avg. Session</div>
             </div>
             <div className="quick-stat-card" style={{borderLeftColor: '#ff9800'}}>
-                <div className="quick-stat-value">156</div>
-                <div className="quick-stat-label">Pending Tasks</div>
+                <div className="quick-stat-value">{performanceData.bounceRate > 0 ? `${performanceData.bounceRate}%` : '...'}</div>
+                <div className="quick-stat-label">Bounce Rate</div>
             </div>
             <div className="quick-stat-card" style={{borderLeftColor: '#9c27b0'}}>
-                <div className="quick-stat-value">12</div>
-                <div className="quick-stat-label">New Messages</div>
+                <div className="quick-stat-value">{satisfactionData.overall > 0 ? satisfactionData.overall : '...'}</div>
+                <div className="quick-stat-label">Satisfaction</div>
             </div>
             </div>
 
             {/* Revenue Trend Line Chart */}
             <div className="chart-card">
             <h3>Revenue Trend (14 Days)</h3>
-            <LineChart data={lineChartData} />
+            <LineChart data={revenueTrend.length > 0 ? revenueTrend : lineChartData} />
             </div>
 
             {/* Performance Metrics */}
             <div className="performance-metrics">
             <div className="performance-card">
                 <h4>Page Load Time</h4>
-                <div className="metric-value">{performanceData.pageLoadTime}s</div>
+                <div className="metric-value">{performanceData.pageLoadTime > 0 ? `${performanceData.pageLoadTime}s` : '...'}</div>
                 <div className="progress-bar">
-                <motion.div 
+                <motion.div
                     className="progress-fill"
                     initial={{ width: 0 }}
-                    animate={{ width: `${(performanceData.pageLoadTime / 5) * 100}%` }}
+                    animate={{ width: performanceData.pageLoadTime > 0 ? `${(performanceData.pageLoadTime / 5) * 100}%` : '0%' }}
                     transition={{ duration: 1 }}
                 ></motion.div>
                 </div>
                 <span>Target: {'<'}3s</span>
             </div>
-            
+
             <div className="performance-card">
                 <h4>Bounce Rate</h4>
-                <div className="metric-value">{performanceData.bounceRate}%</div>
+                <div className="metric-value">{performanceData.bounceRate > 0 ? `${performanceData.bounceRate}%` : '...'}</div>
                 <div className="progress-bar">
-                <motion.div 
+                <motion.div
                     className="progress-fill"
                     initial={{ width: 0 }}
-                    animate={{ width: `${performanceData.bounceRate}%` }}
+                    animate={{ width: performanceData.bounceRate > 0 ? `${performanceData.bounceRate}%` : '0%' }}
                     transition={{ duration: 1, delay: 0.2 }}
                     style={{background: performanceData.bounceRate > 50 ? '#f44336' : '#4caf50'}}
                 ></motion.div>
                 </div>
                 <span>Industry avg: 45%</span>
             </div>
-            
+
             <div className="performance-card">
                 <h4>Avg. Session Duration</h4>
-                <div className="metric-value">{performanceData.avgSession}m</div>
+                <div className="metric-value">{performanceData.avgSession > 0 ? `${performanceData.avgSession}m` : '...'}</div>
                 <div className="progress-bar">
-                <motion.div 
+                <motion.div
                     className="progress-fill"
                     initial={{ width: 0 }}
-                    animate={{ width: `${(performanceData.avgSession / 15) * 100}%` }}
+                    animate={{ width: performanceData.avgSession > 0 ? `${(performanceData.avgSession / 15) * 100}%` : '0%' }}
                     transition={{ duration: 1, delay: 0.4 }}
                 ></motion.div>
                 </div>
@@ -1138,23 +1574,23 @@ const handleSettingChange = (settingKey) => {
             <div className="satisfaction-metrics">
             <div className="satisfaction-card">
                 <h4>Overall Satisfaction</h4>
-                <div className="satisfaction-score">{satisfactionData.overall}/5</div>
+                <div className="satisfaction-score">{satisfactionData.overall > 0 ? `${satisfactionData.overall}/5` : '...'}</div>
                 <div className="satisfaction-stars">★★★★★</div>
-                <p>Based on 1,247 reviews</p>
+                <p>Based on customer feedback</p>
             </div>
-            
+
             <div className="satisfaction-card">
                 <h4>Support Rating</h4>
-                <div className="satisfaction-score" style={{color: '#2196f3'}}>{satisfactionData.support}/5</div>
+                <div className="satisfaction-score" style={{color: '#2196f3'}}>{satisfactionData.support > 0 ? `${satisfactionData.support}/5` : '...'}</div>
                 <div className="satisfaction-stars">★★★★★</div>
-                <p>98% positive feedback</p>
+                <p>Customer support feedback</p>
             </div>
-            
+
             <div className="satisfaction-card">
                 <h4>Product Quality</h4>
-                <div className="satisfaction-score" style={{color: '#4caf50'}}>{satisfactionData.product}/5</div>
+                <div className="satisfaction-score" style={{color: '#4caf50'}}>{satisfactionData.product > 0 ? `${satisfactionData.product}/5` : '...'}</div>
                 <div className="satisfaction-stars">★★★★☆</div>
-                <p>94% satisfaction rate</p>
+                <p>Product satisfaction rate</p>
             </div>
             </div>
 
@@ -1188,7 +1624,7 @@ const handleSettingChange = (settingKey) => {
             {/* Marketing Campaigns */}
             <div className="campaigns-grid">
             <h3 style={{gridColumn: '1 / -1', marginBottom: '0'}}>Marketing Campaigns</h3>
-            {campaigns.map((campaign, index) => (
+            {campaigns.length > 0 ? campaigns.map((campaign, index) => (
                 <div key={index} className="campaign-card">
                 <h4>{campaign.name}</h4>
                 <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '10px'}}>
@@ -1196,27 +1632,29 @@ const handleSettingChange = (settingKey) => {
                     <span>{campaign.progress}%</span>
                 </div>
                 <div className="campaign-progress">
-                    <motion.div 
+                    <motion.div
                     className="campaign-progress-fill"
                     initial={{ width: 0 }}
                     animate={{ width: `${campaign.progress}%` }}
                     transition={{ duration: 1, delay: index * 0.2 }}
                     style={{
-                        background: campaign.status === 'completed' ? '#4caf50' : 
+                        background: campaign.status === 'completed' ? '#4caf50' :
                                 campaign.progress > 75 ? '#ff9800' : '#2196f3'
                     }}
                     ></motion.div>
                 </div>
                 <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#666'}}>
-                    <span>${campaign.spent.toLocaleString()}</span>
-                    <span>${campaign.budget.toLocaleString()}</span>
+                    <span>₹{campaign.spent.toLocaleString()}</span>
+                    <span>₹{campaign.budget.toLocaleString()}</span>
                 </div>
                 <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '12px'}}>
                     <span>Spent</span>
                     <span>Budget</span>
                 </div>
                 </div>
-            ))}
+            )) : (
+              <div style={{gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: '#666'}}>Loading campaigns...</div>
+            )}
             </div>
 
               {/* Real-time Monitoring */}
@@ -1320,7 +1758,7 @@ const handleSettingChange = (settingKey) => {
 
           {/* Products Section */}
           {activeSection === 'products' && (
-            <motion.section 
+            <motion.section
               className="products-section"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1329,9 +1767,316 @@ const handleSettingChange = (settingKey) => {
             >
               <div className="section-header">
                 <h2>Product Management</h2>
-                <button className="primary-btn" onClick={() => setIsAddProductOpen(true)}>+ Add New Product</button>
+                <div style={{display: 'flex', gap: '10px'}}>
+                  <button className="primary-btn" onClick={() => setIsAddProductOpen(true)}>+ Add Product</button>
+                  <button className="secondary-btn" onClick={loadProductsData}>🔄 Refresh</button>
+                </div>
               </div>
-              <p>Product management content goes here...</p>
+
+              {/* Product Filters */}
+              <div className="filters-bar">
+                <div className="container">
+                  <div className="filters-left">
+                    <button
+                      className="filter-toggle"
+                      onClick={() => setIsFilterOpen(!isFilterOpen)}
+                    >
+                      Filters
+                      <span className="filter-count">
+                        {Object.values(productFilters).flat().length > 0 ? Object.values(productFilters).flat().length : ''}
+                      </span>
+                    </button>
+
+                    <div className="active-filters">
+                      {productFilters.category.map(filter => (
+                        <span key={filter} className="active-filter">
+                          {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                          <button onClick={() => handleFilterToggle('category', filter)}>×</button>
+                        </span>
+                      ))}
+                      {productFilters.size.map(filter => (
+                        <span key={filter} className="active-filter">
+                          Size: {filter.toUpperCase()}
+                          <button onClick={() => handleFilterToggle('size', filter)}>×</button>
+                        </span>
+                      ))}
+                      {productFilters.color.map(filter => (
+                        <span key={filter} className="active-filter">
+                          Color: {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                          <button onClick={() => handleFilterToggle('color', filter)}>×</button>
+                        </span>
+                      ))}
+                      {productFilters.price.map(filter => (
+                        <span key={filter} className="active-filter">
+                          {filterOptions.price.find(opt => opt.value === filter)?.label}
+                          <button onClick={() => handleFilterToggle('price', filter)}>×</button>
+                        </span>
+                      ))}
+                      {Object.values(productFilters).flat().length > 0 && (
+                        <button className="clear-filters" onClick={clearAllFilters}>
+                          Clear all
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="filters-right">
+                    <p className="results-count">{totalProducts} products</p>
+
+                    <div className="sort-dropdown">
+                      <button
+                        className="sort-toggle"
+                        onClick={() => setIsSortOpen(!isSortOpen)}
+                      >
+                        Sort: {sortOptions.find(opt => opt.value === selectedSort)?.label}
+                      </button>
+
+                      <AnimatePresence>
+                        {isSortOpen && (
+                          <motion.div
+                            className="sort-options"
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            {sortOptions.map(option => (
+                              <button
+                                key={option.value}
+                                className={selectedSort === option.value ? 'active' : ''}
+                                onClick={() => {
+                                  setSelectedSort(option.value);
+                                  setIsSortOpen(false);
+                                }}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Content */}
+              <div className="plp-container">
+                <div className="container">
+                  {/* Filters Sidebar */}
+                  <AnimatePresence>
+                    {isFilterOpen && (
+                      <motion.div
+                        className="filters-sidebar"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        <div className="filter-group">
+                          <h3>Category</h3>
+                          {filterOptions.category.map(option => (
+                            <label key={option.value} className="filter-checkbox">
+                              <input
+                                type="checkbox"
+                                checked={productFilters.category.includes(option.value)}
+                                onChange={() => handleFilterToggle('category', option.value)}
+                              />
+                              <span className="checkmark"></span>
+                              {option.label}
+                            </label>
+                          ))}
+                        </div>
+
+                        <div className="filter-group">
+                          <h3>Size</h3>
+                          <div className="size-filters">
+                            {filterOptions.size.map(option => (
+                              <button
+                                key={option.value}
+                                className={`size-filter ${productFilters.size.includes(option.value) ? 'active' : ''}`}
+                                onClick={() => handleFilterToggle('size', option.value)}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="filter-group">
+                          <h3>Color</h3>
+                          {filterOptions.color.map(option => (
+                            <label key={option.value} className="filter-checkbox">
+                              <input
+                                type="checkbox"
+                                checked={productFilters.color.includes(option.value)}
+                                onChange={() => handleFilterToggle('color', option.value)}
+                              />
+                              <span className="checkmark"></span>
+                              {option.label}
+                            </label>
+                          ))}
+                        </div>
+
+                        <div className="filter-group">
+                          <h3>Price</h3>
+                          {filterOptions.price.map(option => (
+                            <label key={option.value} className="filter-checkbox">
+                              <input
+                                type="checkbox"
+                                checked={productFilters.price.includes(option.value)}
+                                onChange={() => handleFilterToggle('price', option.value)}
+                              />
+                              <span className="checkmark"></span>
+                              {option.label}
+                            </label>
+                          ))}
+                        </div>
+
+                        <button className="apply-filters" onClick={() => setIsFilterOpen(false)}>
+                          Apply Filters
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Products Grid */}
+                  <div className="products-grid-container">
+                    {loadingProducts ? (
+                      <div className="loading-container">
+                        <div className="loading-spinner"></div>
+                        <p>Loading products...</p>
+                      </div>
+                    ) : products && products.length > 0 ? (
+                      <>
+                        <div className="products-grid">
+                          {products.map(product => (
+                            <motion.div
+                              key={product?.id || Math.random()}
+                              className="product-card"
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.3 }}
+                              whileHover={{ y: -5 }}
+                            >
+                              <div className="product-image">
+                                <img
+                                  src={product?.images && product.images.length > 0 ? product.images[0] : '/placeholder.png'}
+                                  alt={product?.name || 'Product'}
+                                  onError={(e) => {
+                                    e.target.src = '/placeholder.png';
+                                  }}
+                                />
+                                <button className="wishlist-btn">♥</button>
+
+                                {product?.sale_price && (
+                                  <span className="sale-badge">SALE</span>
+                                )}
+                                {product?.status === 'draft' && (
+                                  <span className="new-badge">DRAFT</span>
+                                )}
+
+                                <div className="product-actions">
+                                  <button className="quick-view" onClick={() => handleEditProduct(product)}>Edit</button>
+                                  <button className="add-to-bag" onClick={() => handleDeleteProduct(product?.id)}>Delete</button>
+                                </div>
+                              </div>
+
+                              <div className="product-info">
+                                <div className="product-meta">
+                                  <span className="product-name">{product?.name || 'Unnamed Product'}</span>
+                                </div>
+
+                                <div className="product-price">
+                                  {product?.sale_price ? (
+                                    <>
+                                      <span className="sale-price">${product.sale_price}</span>
+                                      <span className="original-price">${product.price}</span>
+                                    </>
+                                  ) : (
+                                    <span>${product?.price || '0'}</span>
+                                  )}
+                                </div>
+
+                                <div className="product-colors">
+                                  <span className="color-dot" style={{
+                                    backgroundColor: product?.colors && product.colors.length > 0
+                                      ? (product.colors[0].toLowerCase() || '#000')
+                                      : '#000'
+                                  }}></span>
+                                  <span>+{product?.colors ? product.colors.length : 0} colors</span>
+                                </div>
+
+                                <div className="product-rating">
+                                  {renderStars(product?.rating || 0)}
+                                  <span>({product?.review_count || 0})</span>
+                                </div>
+
+                                <div className="product-status">
+                                  <span className={`status-badge status-${product?.status || 'active'}`}>
+                                    {(product?.status || 'active').replace('_', ' ')}
+                                  </span>
+                                </div>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+
+                        {/* Pagination */}
+                        {totalPages > 1 && (
+                          <div className="pagination">
+                            <button
+                              className={`pagination-btn ${!hasPrev ? 'disabled' : ''}`}
+                              onClick={() => hasPrev && paginate(productPage - 1)}
+                              disabled={!hasPrev}
+                            >
+                              Previous
+                            </button>
+
+                            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                              let pageNum;
+                              if (totalPages <= 5) {
+                                pageNum = i + 1;
+                              } else if (productPage <= 3) {
+                                pageNum = i + 1;
+                              } else if (productPage >= totalPages - 2) {
+                                pageNum = totalPages - 4 + i;
+                              } else {
+                                pageNum = productPage - 2 + i;
+                              }
+                              return (
+                                <button
+                                  key={pageNum}
+                                  className={`pagination-btn ${productPage === pageNum ? 'active' : ''}`}
+                                  onClick={() => paginate(pageNum)}
+                                >
+                                  {pageNum}
+                                </button>
+                              );
+                            })}
+
+                            <button
+                              className={`pagination-btn ${!hasNext ? 'disabled' : ''}`}
+                              onClick={() => hasNext && paginate(productPage + 1)}
+                              disabled={!hasNext}
+                            >
+                              Next
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="no-products">
+                        <h2>No products found</h2>
+                        <p>Try adjusting your filters to see more results</p>
+                        <button className="clear-filters-btn" onClick={clearAllFilters}>
+                          Clear all filters
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </motion.section>
           )}
 
@@ -1365,7 +2110,7 @@ const handleSettingChange = (settingKey) => {
                     <div className="quick-stat-label">Success Rate</div>
                 </div>
                 <div className="quick-stat-card" style={{borderLeftColor: '#9c27b0'}}>
-                    <div className="quick-stat-value">$125,430</div>
+                    <div className="quick-stat-value">₹125,430</div>
                     <div className="quick-stat-label">Total Revenue</div>
                 </div>
                 </div>
@@ -1375,7 +2120,7 @@ const handleSettingChange = (settingKey) => {
 
             {/* Customers Section */}
             {activeSection === 'customers' && (
-            <motion.section 
+            <motion.section
                 className="customers-section"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1384,26 +2129,158 @@ const handleSettingChange = (settingKey) => {
             >
                 <div className="section-header">
                 <h2>Customer Management</h2>
-                <button className="primary-btn">+ Add Customer</button>
+                <button className="primary-btn" onClick={() => {
+                  setEditingUser(null);
+                  setUserFormData({
+                    first_name: '',
+                    last_name: '',
+                    email: '',
+                    role: 'customer',
+                    status: 'active'
+                  });
+                  setShowUserModal(true);
+                }}>+ Add Customer</button>
                 </div>
                 <div className="performance-metrics">
                 <div className="performance-card">
                     <h4>Customer Growth</h4>
-                    <div className="metric-value">+12.5%</div>
+                    <div className="metric-value">+{customers.length > 0 ? ((customers.filter(c => new Date(c.created_at) > new Date(Date.now() - 30*24*60*60*1000)).length / customers.length) * 100).toFixed(1) : 0}%</div>
                     <p>Monthly growth rate</p>
                 </div>
                 <div className="performance-card">
                     <h4>Retention Rate</h4>
-                    <div className="metric-value">87.3%</div>
+                    <div className="metric-value">{customers.length > 0 ? ((customers.filter(c => c.status === 'active').length / customers.length) * 100).toFixed(1) : 0}%</div>
                     <p>Customer retention</p>
                 </div>
                 <div className="performance-card">
                     <h4>Lifetime Value</h4>
-                    <div className="metric-value">$1,247</div>
+                    <div className="metric-value">₹{customers.length > 0 ? (customers.reduce((sum, c) => sum + c.totalSpent, 0) / customers.length).toFixed(0).toLocaleString() : 0}</div>
                     <p>Average LTV</p>
                 </div>
                 </div>
-                <p>Customer management content goes here...</p>
+
+                {/* Customer Table */}
+                <div className="data-table-container">
+                  <div className="table-header">
+                    <h3>Customer List</h3>
+                    <div className="table-actions">
+                      <input
+                        type="text"
+                        placeholder="Search customers..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="search-input"
+                      />
+                    </div>
+                  </div>
+                  <div className="data-table">
+                    <div className="table-header-row">
+                      <div className="table-cell">Name</div>
+                      <div className="table-cell">Email</div>
+                      <div className="table-cell">Status</div>
+                      <div className="table-cell">Last Active</div>
+                      <div className="table-cell">Total Orders</div>
+                      <div className="table-cell">Total Spent</div>
+                      <div className="table-cell">Actions</div>
+                    </div>
+                    {loadingCustomers ? (
+                      <div className="loading-row">Loading customers...</div>
+                    ) : customers.length === 0 ? (
+                      <div className="empty-row">No customers found</div>
+                    ) : (
+                      customers
+                        .filter(customer =>
+                          customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          customer.email.toLowerCase().includes(searchQuery.toLowerCase())
+                        )
+                        .map((customer) => (
+                          <div key={customer.id} className="table-row">
+                            <div className="table-cell">{customer.name}</div>
+                            <div className="table-cell">{customer.email}</div>
+                            <div className="table-cell">
+                              <span className={`status-badge status-${customer.status}`}>
+                                {customer.status.charAt(0).toUpperCase() + customer.status.slice(1)}
+                              </span>
+                            </div>
+                            <div className="table-cell">{customer.lastActive}</div>
+                            <div className="table-cell">{customer.totalOrders}</div>
+                            <div className="table-cell">₹{customer.totalSpent.toLocaleString()}</div>
+                            <div className="table-cell">
+                              <button
+                                className="action-btn edit-btn"
+                                onClick={() => handleEditUser(customer)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                className="action-btn delete-btn"
+                                onClick={() => handleDeleteUser(customer.id)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Customer Modal */}
+                {showUserModal && (
+                  <div className="modal-overlay" onClick={() => setShowUserModal(false)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                      <h3>{editingUser ? 'Edit Customer' : 'Add Customer'}</h3>
+                      <form onSubmit={(e) => {
+                        e.preventDefault();
+                        handleSaveUser(userFormData);
+                      }}>
+                        <div style={{marginBottom: '15px'}}>
+                          <label>First Name:</label>
+                          <input
+                            type="text"
+                            value={userFormData.first_name}
+                            onChange={(e) => setUserFormData(prev => ({ ...prev, first_name: capitalizeName(e.target.value) }))}
+                            required
+                          />
+                        </div>
+                        <div style={{marginBottom: '15px'}}>
+                          <label>Last Name:</label>
+                          <input
+                            type="text"
+                            value={userFormData.last_name}
+                            onChange={(e) => setUserFormData(prev => ({ ...prev, last_name: capitalizeName(e.target.value) }))}
+                            required
+                          />
+                        </div>
+                        <div style={{marginBottom: '15px'}}>
+                          <label>Email:</label>
+                          <input
+                            type="email"
+                            value={userFormData.email}
+                            onChange={(e) => setUserFormData(prev => ({ ...prev, email: e.target.value.trim() }))}
+                            required
+                          />
+                        </div>
+                        <div style={{marginBottom: '15px'}}>
+                          <label>Status:</label>
+                          <select
+                            value={userFormData.status}
+                            onChange={(e) => setUserFormData(prev => ({ ...prev, status: e.target.value }))}
+                            required
+                          >
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="suspended">Suspended</option>
+                          </select>
+                        </div>
+                        <div style={{display: 'flex', gap: '10px'}}>
+                          <button type="submit" className="primary-btn">Save</button>
+                          <button type="button" className="secondary-btn" onClick={() => setShowUserModal(false)}>Cancel</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
             </motion.section>
             )}
 
@@ -1429,8 +2306,8 @@ const handleSettingChange = (settingKey) => {
                 </div>
                 <div className="charts-row">
                 <div className="chart-card">
-                    <h3>User Engagement</h3>
-                    <LineChart data={lineChartData.map((d, i) => ({ day: d.day, value: d.value / 1000 }))} />
+                  <h3>User Engagement</h3>
+                  <LineChart data={revenueTrend.length > 0 ? revenueTrend.map((d, i) => ({ day: d.day, value: d.value / 1000 })) : lineChartData.map((d, i) => ({ day: d.day, value: d.value / 1000 }))} />
                 </div>
                 <div className="chart-card">
                     <h3>Conversion Funnel</h3>
@@ -1498,8 +2375,8 @@ const handleSettingChange = (settingKey) => {
             ></motion.div>
           </div>
           <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginTop: '10px'}}>
-            <span>Spent: ${campaign.spent.toLocaleString()}</span>
-            <span>Budget: ${campaign.budget.toLocaleString()}</span>
+            <span>Spent: ₹{campaign.spent.toLocaleString()}</span>
+            <span>Budget: ₹{campaign.budget.toLocaleString()}</span>
           </div>
         </div>
       ))}
@@ -1507,7 +2384,7 @@ const handleSettingChange = (settingKey) => {
 
     <div className="chart-card">
       <h3>Campaign Performance</h3>
-      <LineChart data={lineChartData.map((d, i) => ({ day: d.day, value: d.value / 500 }))} />
+      <LineChart data={revenueTrend.length > 0 ? revenueTrend.map((d, i) => ({ day: d.day, value: d.value / 500 })) : lineChartData.map((d, i) => ({ day: d.day, value: d.value / 500 }))} />
     </div>
   </motion.section>
 )}
@@ -1650,34 +2527,36 @@ const handleSettingChange = (settingKey) => {
       </div>
 
       <div className="setting-card">
-        <h4>System Information</h4>
-        <div style={{margin: '15px 0'}}>
-          <div style={{display: 'flex', justifyContent: 'space-between', margin: '10px 0'}}>
-            <span>Version</span>
-            <span>v2.1.4</span>
-          </div>
-          <div style={{display: 'flex', justifyContent: 'space-between', margin: '10px 0'}}>
-            <span>Last Update</span>
-            <span>2025-01-10</span>
-          </div>
-          <div style={{display: 'flex', justifyContent: 'space-between', margin: '10px 0'}}>
-            <span>Database Size</span>
-            <span>245 MB</span>
+          <h4>System Information</h4>
+          <div style={{margin: '15px 0'}}>
+            <div style={{display: 'flex', justifyContent: 'space-between', margin: '10px 0'}}>
+              <span>Version</span>
+              <span>v2.1.4</span>
+            </div>
+            <div style={{display: 'flex', justifyContent: 'space-between', margin: '10px 0'}}>
+              <span>Last Update</span>
+              <span>2025-01-10</span>
+            </div>
+            <div style={{display: 'flex', justifyContent: 'space-between', margin: '10px 0'}}>
+              <span>Database Size</span>
+              <span>245 MB</span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-
-    <div className="system-health">
-      <h3 style={{gridColumn: '1 / -1'}}>System Health</h3>
-      {systemStatus.map((service, index) => (
-        <div key={index} className="health-card">
-          <div className={`health-status status-${service.status}`}></div>
-          <h5>{service.service}</h5>
-          <div style={{fontSize: '14px', color: '#666'}}>Uptime: {service.uptime}</div>
-        </div>
-      ))}
-    </div>
+ 
+      <div className="system-health">
+        <h3 style={{gridColumn: '1 / -1'}}>System Health</h3>
+        {systemStatus.length > 0 ? systemStatus.map((service, index) => (
+          <div key={index} className="health-card">
+            <div className={`health-status status-${service.status}`}></div>
+            <h5>{service.service}</h5>
+            <div style={{fontSize: '14px', color: '#666'}}>Uptime: {service.uptime}</div>
+          </div>
+        )) : (
+          <div style={{gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: '#666'}}>Loading system status...</div>
+        )}
+      </div>
   </motion.section>
 )}
 
@@ -1836,17 +2715,17 @@ const handleSettingChange = (settingKey) => {
             <div className="finance-metrics">
             <div className="finance-card">
                 <h4>Total Revenue</h4>
-                <div className="metric-value">${financeData.revenue.toLocaleString()}</div>
+                <div className="metric-value">₹{financeData.revenue.toLocaleString()}</div>
                 <div className="finance-trend trend-positive">↑ {financeData.growth}%</div>
             </div>
             <div className="finance-card">
                 <h4>Expenses</h4>
-                <div className="metric-value">${financeData.expenses.toLocaleString()}</div>
+                <div className="metric-value">₹{financeData.expenses.toLocaleString()}</div>
                 <div className="finance-trend trend-negative">↑ 8.2%</div>
             </div>
             <div className="finance-card">
                 <h4>Net Profit</h4>
-                <div className="metric-value">${financeData.profit.toLocaleString()}</div>
+                <div className="metric-value">₹{financeData.profit.toLocaleString()}</div>
                 <div className="finance-trend trend-positive">↑ 15.7%</div>
             </div>
             <div className="finance-card">
@@ -1903,7 +2782,7 @@ const handleSettingChange = (settingKey) => {
                 <div className="notification-icon">📦</div>
                 <div className="notification-content">
                 <h4>New Order Received</h4>
-                <p>Order #IWX789012 has been placed for $247.50</p>
+                <p>Order #IWX789012 has been placed for ₹247.50</p>
                 <span className="notification-time">15 minutes ago</span>
                 </div>
                 <button className="notification-action">Process</button>
@@ -2333,11 +3212,16 @@ const handleSettingChange = (settingKey) => {
 
       {isAddProductOpen && (
         <AddProductForm
-          onClose={() => setIsAddProductOpen(false)}
-          onSuccess={() => {
-            // Refresh products data if needed
+          onClose={() => {
             setIsAddProductOpen(false);
+            setEditingProduct(null);
           }}
+          onSuccess={() => {
+            setIsAddProductOpen(false);
+            setEditingProduct(null);
+            loadProductsData(); // Refresh products data
+          }}
+          editingProduct={editingProduct}
         />
       )}
 
