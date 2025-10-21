@@ -251,6 +251,9 @@ const AddProductForm = ({ onClose, onSuccess, editingProduct }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Only allow submission on the final step (step 3)
+    if (currentStep !== 3) return;
+
     if (!validateStep(currentStep)) return;
 
     setLoading(true);
@@ -668,7 +671,7 @@ const AddProductForm = ({ onClose, onSuccess, editingProduct }) => {
 
           {renderStepIndicator()}
 
-          <form onSubmit={handleSubmit}>
+          <form>
             <AnimatePresence mode="wait">
               {currentStep === 1 && renderMediaUpload()}
               {currentStep === 2 && renderBasicInfo()}
@@ -691,7 +694,7 @@ const AddProductForm = ({ onClose, onSuccess, editingProduct }) => {
                   Next
                 </button>
               ) : (
-                <button type="submit" className="primary-btn" disabled={loading}>
+                <button type="button" className="primary-btn" onClick={handleSubmit} disabled={loading}>
                   {loading ? (editingProduct ? 'Updating...' : 'Creating...') : (editingProduct ? 'Update Product' : 'Create Product')}
                 </button>
               )}
