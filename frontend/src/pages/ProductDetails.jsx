@@ -244,6 +244,9 @@ const ProductDetail = () => {
                   <video
                     src={getCurrentMediaUrl()}
                     controls
+                    autoPlay
+                    muted
+                    loop
                     className={isZoomed ? 'zoomed' : ''}
                     onClick={() => setIsZoomed(!isZoomed)}
                     style={{ width: '100%', height: 'auto', maxHeight: '500px', objectFit: 'contain' }}
