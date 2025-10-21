@@ -13,6 +13,7 @@ const ProductDetail = () => {
   const [activeTab, setActiveTab] = useState('description');
   const [isZoomed, setIsZoomed] = useState(false);
   const [currentImage, setCurrentImage] = useState(0);
+  const [currentMedia, setCurrentMedia] = useState(0);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
@@ -117,6 +118,8 @@ const ProductDetail = () => {
         if (productData.sizes && productData.sizes.length > 0) {
           setSelectedSize(productData.sizes[0]);
         }
+        // Reset media index when new product loads
+        setCurrentMedia(0);
       } catch (err) {
         console.error('Failed to fetch product:', err);
         setError('Failed to load product details');
@@ -151,6 +154,27 @@ const ProductDetail = () => {
     return Array.from({ length: 5 }, (_, i) => (
       <span key={i} className={i < Math.floor(rating) ? "star filled" : "star"}>★</span>
     ));
+  };
+
+  // Combine images and videos for media gallery
+  const getAllMedia = () => {
+    if (!product) return [];
+    const images = product.images || [];
+    const videos = product.videos || [];
+    return [...images, ...videos];
+  };
+
+  // Check if current media is a video
+  const isCurrentMediaVideo = () => {
+    if (!product) return false;
+    const images = product.images || [];
+    return currentMedia >= images.length;
+  };
+
+  // Get current media URL
+  const getCurrentMediaUrl = () => {
+    const allMedia = getAllMedia();
+    return allMedia[currentMedia] || '';
   };
 
   const shareOptions = [
@@ -213,18 +237,28 @@ const ProductDetail = () => {
       <div className="product-detail-content">
         <div className="container">
           <div className="product-main">
-            {/* Product Images */}
+            {/* Product Media */}
             <div className="product-images">
               <div className="main-image">
-                <img
-                  src={product.images && product.images.length > 0 ? product.images[currentImage] : '/placeholder.png'}
-                  alt={product.name}
-                  className={isZoomed ? 'zoomed' : ''}
-                  onClick={() => setIsZoomed(!isZoomed)}
-                  onError={(e) => {
-                    e.target.src = '/placeholder.png';
-                  }}
-                />
+                {isCurrentMediaVideo() ? (
+                  <video
+                    src={getCurrentMediaUrl()}
+                    controls
+                    className={isZoomed ? 'zoomed' : ''}
+                    onClick={() => setIsZoomed(!isZoomed)}
+                    style={{ width: '100%', height: 'auto', maxHeight: '500px', objectFit: 'contain' }}
+                  />
+                ) : (
+                  <img
+                    src={getCurrentMediaUrl() || '/placeholder.png'}
+                    alt={product.name}
+                    className={isZoomed ? 'zoomed' : ''}
+                    onClick={() => setIsZoomed(!isZoomed)}
+                    onError={(e) => {
+                      e.target.src = '/placeholder.png';
+                    }}
+                  />
+                )}
                 <button
                   className="wishlist-btn"
                   onClick={handleWishlist}
@@ -236,16 +270,27 @@ const ProductDetail = () => {
                 )}
               </div>
               <div className="image-thumbnails">
-                {product.images && product.images.map((image, index) => (
+                {getAllMedia().map((media, index) => (
                   <div
                     key={index}
-                    className={`thumbnail ${currentImage === index ? 'active' : ''}`}
-                    onClick={() => setCurrentImage(index)}
+                    className={`thumbnail ${currentMedia === index ? 'active' : ''}`}
+                    onClick={() => setCurrentMedia(index)}
                   >
-                    <img src={image} alt={`${product.name} view ${index + 1}`}
-                         onError={(e) => {
-                           e.target.src = '/placeholder.png';
-                         }} />
+                    {index >= (product.images?.length || 0) ? (
+                      <video
+                        src={media}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        muted
+                      />
+                    ) : (
+                      <img
+                        src={media}
+                        alt={`${product.name} view ${index + 1}`}
+                        onError={(e) => {
+                          e.target.src = '/placeholder.png';
+                        }}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
