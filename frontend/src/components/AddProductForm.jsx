@@ -616,6 +616,7 @@ const AddProductForm = ({ onClose, onSuccess, editingProduct }) => {
           value={formData.colors.join(', ')}
           onChange={(e) => handleArrayInput('colors', e.target.value)}
           placeholder="Red, Blue, Green"
+          title="Enter colors separated by commas. Spaces and commas are allowed."
         />
       </div>
 
