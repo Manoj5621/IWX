@@ -22,7 +22,10 @@ const AdminDashboard = () => {
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [websocketConnected, setWebsocketConnected] = useState(false);
-
+  const websocketConnectedRef = useRef(false);
+  const [orderStatusFilter, setOrderStatusFilter] = useState('');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('');
+  const [dateRangeFilter, setDateRangeFilter] = useState({ from: '', to: '' });
   // Product management states
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -50,7 +53,8 @@ const AdminDashboard = () => {
     status: [],
     payment_status: [],
     date_from: '',
-    date_to: ''
+    date_to: '',
+    search: ''
   });
   const [orderPage, setOrderPage] = useState(1);
   const [selectedOrders, setSelectedOrders] = useState([]);
@@ -65,7 +69,18 @@ const AdminDashboard = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
   const [showNewOrderModal, setShowNewOrderModal] = useState(false);
-  const [orderStats, setOrderStats] = useState({});
+  const [orderStats, setOrderStats] = useState({
+    total_orders: 0,
+    pending_orders: 0,
+    processing_orders: 0,
+    shipped_orders: 0,
+    delivered_orders: 0,
+    cancelled_orders: 0,
+    total_revenue: 0.0,
+    average_order_value: 0.0,
+    orders_today: 0,
+    revenue_today: 0.0
+  });
   const [totalOrderPages, setTotalOrderPages] = useState(1);
 
   // New order form data
@@ -158,31 +173,14 @@ const AdminDashboard = () => {
 
   const [campaigns, setCampaigns] = useState([]);
 
-    // Line chart data for revenue trend
-    const lineChartData = [
-    { day: '1', value: 12000 },
-    { day: '2', value: 18000 },
-    { day: '3', value: 15000 },
-    { day: '4', value: 22000 },
-    { day: '5', value: 19000 },
-    { day: '6', value: 25000 },
-    { day: '7', value: 21000 },
-    { day: '8', value: 28000 },
-    { day: '9', value: 24000 },
-    { day: '10', value: 31000 },
-    { day: '11', value: 27000 },
-    { day: '12', value: 35000 },
-    { day: '13', value: 32000 },
-    { day: '14', value: 38000 }
-    ];
 
   const [inventoryItems, setInventoryItems] = useState([]);
 
   const [marketingData, setMarketingData] = useState({
-    roi: 0,
-    clickRate: 0,
-    impressions: 0,
-    engagements: 0
+    roi: '...',
+    clickRate: '...',
+    impressions: '...',
+    engagements: '...'
   });
 
   const [settings, setSettings] = useState({
@@ -199,10 +197,10 @@ const AdminDashboard = () => {
   const [loadingCustomers, setLoadingCustomers] = useState(true);
 
   const [financeData, setFinanceData] = useState({
-    revenue: 0,
-    expenses: 0,
-    profit: 0,
-    growth: 0
+    revenue: '...',
+    expenses: '...',
+    profit: '...',
+    growth: '...'
   });
 
   const [systemStatus, setSystemStatus] = useState([]);
@@ -214,13 +212,39 @@ const AdminDashboard = () => {
   const [recentOrders, setRecentOrders] = useState([]);
   const [revenueTrend, setRevenueTrend] = useState([]);
 
-// Toggle functionality for settings
-const handleSettingChange = (settingKey) => {
-  setSettings(prev => ({
-    ...prev,
-    [settingKey]: !prev[settingKey]
-  }));
-};
+  // Toggle functionality for settings
+  const handleSettingChange = (settingKey) => {
+    setSettings(prev => ({
+      ...prev,
+      [settingKey]: !prev[settingKey]
+    }));
+  };
+
+  const handleStatusFilterChange = (status) => {
+    setOrderStatusFilter(status);
+    handleOrderFilterToggle('status', status);
+  };
+
+  const handlePaymentStatusFilterChange = (status) => {
+    setPaymentStatusFilter(status);
+    handleOrderFilterToggle('payment_status', status);
+  };
+
+  const handleDateRangeFilter = (from, to) => {
+    setDateRangeFilter({ from, to });
+    setOrderFilters(prev => ({
+      ...prev,
+      date_from: from,
+      date_to: to
+    }));
+  };
+
+  const clearAllOrderFilters = () => {
+    setOrderStatusFilter('');
+    setPaymentStatusFilter('');
+    setDateRangeFilter({ from: '', to: '' });
+    clearOrderFilters();
+  };
 
   // Load dashboard data and set up real-time updates
   useEffect(() => {
@@ -237,6 +261,7 @@ const handleSettingChange = (settingKey) => {
     loadMarketingData();
     loadPerformanceData();
     loadCustomerSatisfactionData();
+    loadCustomerStatsData();
     loadTrafficSourcesData();
     loadSystemStatusData();
     loadSalesData();
@@ -263,86 +288,83 @@ const handleSettingChange = (settingKey) => {
   // No polling - rely on WebSocket for real-time updates
   // If WebSocket fails, use the initial data loaded on mount
 
-  // Connect to WebSocket for real-time updates (only once on mount)
+  // Connect to WebSocket for real-time updates
   useEffect(() => {
+    let checkConnectionInterval = null;
     const token = localStorage.getItem('token');
-    if (token) {
+
+    // Only connect if we have a token and are not already connected
+    if (token && !websocketService.isConnected('admin-dashboard')) {
+      console.log('Initializing WebSocket connection for admin dashboard');
+
       const wsConnection = websocketService.connectAdminDashboard(
         (data) => {
-          // Handle real-time updates from all channels
-          if (data.type === 'stats_update') {
-            setStats(prev => ({ ...prev, ...data.data }));
-          } else if (data.type === 'user_update') {
-            // Handle user updates (create, update, delete)
-            handleUserUpdate(data.data);
-          } else if (data.type === 'product_update') {
-            // Handle product updates
-            if (activeSection === 'products') {
-              loadProductsData();
-            }
-          } else if (data.type === 'inventory_update') {
-            loadInventoryData();
-          } else if (data.type === 'campaigns_update') {
-            loadMarketingData();
-          } else if (data.type === 'metrics_update') {
-            loadPerformanceData();
-          } else if (data.type === 'satisfaction_update') {
-            loadCustomerSatisfactionData();
-          } else if (data.type === 'traffic_update') {
-            loadTrafficSourcesData();
-          } else if (data.type === 'status_update') {
-            loadSystemStatusData();
-          } else if (data.type === 'sales_data_update') {
-            setSalesData(data.data.sales_data);
-          } else if (data.type === 'top_products_update') {
-            setTopProducts(data.data.top_products);
-          } else if (data.type === 'recent_orders_update') {
-            setRecentOrders(data.data.recent_orders);
-          } else if (data.type === 'revenue_trend_update') {
-            setRevenueTrend(data.data.revenue_trend);
-          } else if (data.type === 'security_update') {
-            // Handle security updates
-            if (activeSection === 'security') {
-              loadSecurityData();
-            }
-          } else if (data.type === 'order_update') {
-            // Handle order updates
-            if (activeSection === 'orders') {
-              loadOrdersData();
-              loadOrderStats();
-            }
-          } else if (data.type === 'new_order') {
-            // Handle new order notification
-            if (activeSection === 'orders') {
-              loadOrdersData();
-              loadOrderStats();
-            }
-            // Could show notification here
-          }
+          // Handle real-time updates
+          console.log('WebSocket message received:', data);
+          handleWebSocketMessage(data);
         },
         (error) => {
           console.error('WebSocket error:', error);
+          websocketConnectedRef.current = false;
           setWebsocketConnected(false);
         },
-        () => {
-          console.log('WebSocket disconnected - will attempt to reconnect');
+        (event) => {
+          console.log('WebSocket disconnected:', event.code, event.reason);
+          websocketConnectedRef.current = false;
           setWebsocketConnected(false);
-          // Don't manually reconnect here, let the service handle it
         }
       );
 
-      // Set connection status when WebSocket opens
+      // Set up connection status checking
       if (wsConnection) {
-        wsConnection.addEventListener('open', () => {
-          setWebsocketConnected(true);
-        });
-      }
+        checkConnectionInterval = setInterval(() => {
+          const isConnected = websocketService.isConnected('admin-dashboard');
+          if (isConnected !== websocketConnectedRef.current) {
+            websocketConnectedRef.current = isConnected;
+            setWebsocketConnected(isConnected);
+          }
+        }, 15000); // Check every 15 seconds
 
-      return () => {
-        websocketService.disconnectAdminDashboard();
-      };
+        // Initial connection status
+        setTimeout(() => {
+          const isConnected = websocketService.isConnected('admin-dashboard');
+          websocketConnectedRef.current = isConnected;
+          setWebsocketConnected(isConnected);
+        }, 1000);
+      }
     }
-  }, []); // Remove activeSection dependency to prevent reconnection
+
+    return () => {
+      if (checkConnectionInterval) {
+        clearInterval(checkConnectionInterval);
+      }
+      // Clean up connection on unmount
+      websocketService.disconnectAdminDashboard();
+    };
+  }, []); // Keep empty dependency array
+
+  // WebSocket message handler
+  const handleWebSocketMessage = (data) => {
+    if (data.type === 'stats_update') {
+      setStats(prev => ({ ...prev, ...data.data }));
+    } else if (data.type === 'order_update') {
+      if (activeSection === 'orders') {
+        loadOrdersData();
+        loadOrderStats();
+      }
+    } else if (data.type === 'auth_success') {
+      console.log('WebSocket authentication successful');
+      websocketConnectedRef.current = true;
+      setWebsocketConnected(true);
+    } else if (data.type === 'auth_failed') {
+      console.error('WebSocket authentication failed');
+      websocketConnectedRef.current = false;
+      setWebsocketConnected(false);
+    } else if (data.type === 'auth_required') {
+      console.log('WebSocket authentication required');
+    }
+    // Add other message handlers as needed
+  };
 
 
   const loadDashboardData = async () => {
@@ -362,9 +384,8 @@ const handleSettingChange = (settingKey) => {
       // If WebSocket is disconnected, show a more informative message
       if (!websocketConnected) {
         console.log('WebSocket disconnected, using REST API fallback');
-      } else {
-        // Show error message to user instead of keeping mock data
       }
+      // Don't show mock data on API failures - let the UI show loading states or empty states
     } finally {
       setLoading(false);
     }
@@ -409,8 +430,8 @@ const handleSettingChange = (settingKey) => {
         lastActive: customer.last_login ? new Date(customer.last_login).toLocaleString() : 'Never',
         status: customer.status,
         created_at: customer.created_at,
-        totalOrders: 0, // Would come from order stats
-        totalSpent: 0 // Would come from order stats
+        totalOrders: 0, // Will be populated from order stats
+        totalSpent: 0 // Will be populated from order stats
       })));
     } catch (error) {
       console.error('Failed to load customers data:', error);
@@ -481,6 +502,26 @@ const handleSettingChange = (settingKey) => {
       setSatisfactionData(satisfaction);
     } catch (error) {
       console.error('Failed to load customer satisfaction data:', error);
+    }
+  };
+
+  const loadCustomerStatsData = async () => {
+    try {
+      const customerStats = await adminAPI.getCustomerStats();
+      // Update customers with real stats
+      setCustomers(prev => prev.map(customer => {
+        const stats = customerStats.find(stat => stat.id === customer.id);
+        if (stats) {
+          return {
+            ...customer,
+            totalOrders: stats.total_orders,
+            totalSpent: stats.total_spent
+          };
+        }
+        return customer;
+      }));
+    } catch (error) {
+      console.error('Failed to load customer stats data:', error);
     }
   };
 
@@ -581,6 +622,15 @@ const handleSettingChange = (settingKey) => {
     }
   };
 
+  const loadOrderStats = async () => {
+    try {
+      const stats = await adminAPI.getOrderStats();
+      setOrderStats(stats);
+    } catch (error) {
+      console.error('Failed to load order stats:', error);
+    }
+  };
+
   const loadOrdersData = async () => {
     try {
       setLoadingOrders(true);
@@ -613,14 +663,6 @@ const handleSettingChange = (settingKey) => {
     }
   };
 
-  const loadOrderStats = async () => {
-    try {
-      const stats = await adminAPI.getOrderStats();
-      setOrderStats(stats);
-    } catch (error) {
-      console.error('Failed to load order stats:', error);
-    }
-  };
 
   const handleFilterToggle = (filterType, value) => {
     setProductFilters(prev => {
@@ -1045,6 +1087,20 @@ const handleSettingChange = (settingKey) => {
       // If role changed from customer to something else, remove from customers
       if (data.user.role !== 'customer') {
         setCustomers(prev => prev.filter(customer => customer.id !== data.user.id));
+      } else {
+        // Update customers list if the user is now a customer
+        setCustomers(prev => prev.map(customer =>
+          customer.id === data.user.id ? {
+            ...customer,
+            first_name: data.user.first_name || customer.first_name,
+            last_name: data.user.last_name || customer.last_name,
+            role: data.user.role || customer.role,
+            email: data.user.email || customer.email,
+            lastActive: data.user.last_login ? new Date(data.user.last_login).toLocaleString() : customer.lastActive,
+            status: data.user.status || customer.status,
+            name: `${capitalizeName(data.user.first_name || customer.first_name)} ${capitalizeName(data.user.last_name || customer.last_name)}`.trim() || (data.user.email || customer.email)
+          } : customer
+        ));
       }
     } else if (data.action === 'delete') {
       setUsers(prev => prev.filter(user => user.id !== data.user_id));
@@ -1138,6 +1194,7 @@ const handleSettingChange = (settingKey) => {
         role: 'customer',
         status: 'active'
       });
+      setCustomers(prev => [newCustomer, ...prev]);
     } catch (error) {
       console.error('Failed to save user:', error);
       alert(`Failed to save user: ${error.response?.data?.detail || error.message}`);
@@ -1317,8 +1374,8 @@ const handleSettingChange = (settingKey) => {
   const CalendarWidget = () => {
   const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const dates = Array.from({ length: 31 }, (_, i) => i + 1);
-  const events = [5, 12, 18, 25]; // Dates with events
-  
+  const events = []; // Will be populated from real data
+
   return (
     <div className="calendar-widget">
       <div className="calendar-header">
@@ -1332,8 +1389,8 @@ const handleSettingChange = (settingKey) => {
           <div key={day} className="calendar-day header">{day}</div>
         ))}
         {dates.map(date => (
-          <div 
-            key={date} 
+          <div
+            key={date}
             className={`calendar-day ${
               events.includes(date) ? 'event' : ''
             } ${date === 15 ? 'today' : ''}`}
@@ -1917,7 +1974,7 @@ const handleSettingChange = (settingKey) => {
             {/* Revenue Trend Line Chart */}
             <div className="chart-card">
             <h3>Revenue Trend (14 Days)</h3>
-            <LineChart data={revenueTrend.length > 0 ? revenueTrend : lineChartData} />
+            <LineChart data={revenueTrend.length > 0 ? revenueTrend : []} />
             </div>
 
             {/* Performance Metrics */}
@@ -2496,19 +2553,19 @@ const handleSettingChange = (settingKey) => {
                {/* Order Statistics */}
                <div className="quick-stats-grid">
                <div className="quick-stat-card" style={{borderLeftColor: '#4caf50'}}>
-                   <div className="quick-stat-value">{orderStats.total_orders || 2847}</div>
+                   <div className="quick-stat-value">{orderStats.total_orders || '...'}</div>
                    <div className="quick-stat-label">Total Orders</div>
                </div>
                <div className="quick-stat-card" style={{borderLeftColor: '#2196f3'}}>
-                   <div className="quick-stat-value">{orderStats.pending_orders || 156}</div>
+                   <div className="quick-stat-value">{orderStats.pending_orders || '...'}</div>
                    <div className="quick-stat-label">Pending</div>
                </div>
                <div className="quick-stat-card" style={{borderLeftColor: '#ff9800'}}>
-                   <div className="quick-stat-value">{orderStats.average_order_value ? `₹${orderStats.average_order_value.toLocaleString()}` : '₹125,430'}</div>
+                   <div className="quick-stat-value">{orderStats.average_order_value ? `₹${orderStats.average_order_value.toLocaleString()}` : '...'}</div>
                    <div className="quick-stat-label">Avg Order Value</div>
                </div>
                <div className="quick-stat-card" style={{borderLeftColor: '#9c27b0'}}>
-                   <div className="quick-stat-value">₹{orderStats.total_revenue ? orderStats.total_revenue.toLocaleString() : '125,430'}</div>
+                   <div className="quick-stat-value">₹{orderStats.total_revenue ? orderStats.total_revenue.toLocaleString() : '...'}</div>
                    <div className="quick-stat-label">Total Revenue</div>
                </div>
                </div>
@@ -2539,12 +2596,64 @@ const handleSettingChange = (settingKey) => {
                                        Payment: {filter.charAt(0).toUpperCase() + filter.slice(1)}
                                        <button onClick={() => handleOrderFilterToggle('payment_status', filter)}>×</button>
                                    </span>
-                               ))}
-                               {Object.values(orderFilters).flat().length > 0 && (
-                                   <button className="clear-filters" onClick={clearOrderFilters}>
-                                       Clear all
-                                   </button>
-                               )}
+                               ))}               
+
+                              <div className="filter-dropdown">
+                                <select
+                                  value={orderStatusFilter}
+                                  onChange={(e) => handleStatusFilterChange(e.target.value)}
+                                  className="filter-select"
+                                >
+                                  <option value="">All Statuses</option>
+                                  {orderStatusOptions.map(option => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Payment Status Filter */}
+                              <div className="filter-dropdown">
+                                <select
+                                  value={paymentStatusFilter}
+                                  onChange={(e) => handlePaymentStatusFilterChange(e.target.value)}
+                                  className="filter-select"
+                                >
+                                  <option value="">All Payment Status</option>
+                                  {paymentStatusOptions.map(option => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {/* Date Range Filter */}
+                              <div className="date-filter-group">
+                                <input
+                                  type="date"
+                                  value={dateRangeFilter.from}
+                                  onChange={(e) => handleDateRangeFilter(e.target.value, dateRangeFilter.to)}
+                                  placeholder="From Date"
+                                  className="date-input"
+                                />
+                                <span>to</span>
+                                <input
+                                  type="date"
+                                  value={dateRangeFilter.to}
+                                  onChange={(e) => handleDateRangeFilter(dateRangeFilter.from, e.target.value)}
+                                  placeholder="To Date"
+                                  className="date-input"
+                                />
+                              </div>
+
+                              {Object.values(orderFilters).flat().length > 0 && (
+                                <button className="clear-filters" onClick={clearAllOrderFilters}>
+                                  Clear all
+                                </button>
+                              )}
+
                            </div>
                        </div>
 
@@ -2704,9 +2813,21 @@ const handleSettingChange = (settingKey) => {
                                    <div className="table-cell">
                                        <strong>{order.order_number}</strong>
                                    </div>
-                                   <div className="table-cell">
-                                       {order.user ? `${order.user.first_name} ${order.user.last_name}` : 'N/A'}
-                                   </div>
+                                    <div className="table-cell">
+                                      {order.user ? (
+                                        <div>
+                                          <div><strong>{order.user.first_name} {order.user.last_name}</strong></div>
+                                          <div style={{fontSize: '12px', color: '#666'}}>{order.user.email}</div>
+                                        </div>
+                                      ) : order.customer_email ? (
+                                        <div>
+                                          <div><strong>Guest Customer</strong></div>
+                                          <div style={{fontSize: '12px', color: '#666'}}>{order.customer_email}</div>
+                                        </div>
+                                      ) : (
+                                        'N/A'
+                                      )}
+                                    </div>
                                    <div className="table-cell">
                                        <select
                                            value={order.status}
@@ -3240,7 +3361,7 @@ const handleSettingChange = (settingKey) => {
                 </div>
                 <div className="performance-card">
                     <h4>Lifetime Value</h4>
-                    <div className="metric-value">₹{customers.length > 0 ? (customers.reduce((sum, c) => sum + c.totalSpent, 0) / customers.length).toFixed(0).toLocaleString() : 0}</div>
+                    <div className="metric-value">₹{customers.length > 0 ? (customers.reduce((sum, c) => sum + (typeof c.totalSpent === 'number' ? c.totalSpent : parseFloat(c.totalSpent) || 0), 0) / customers.length).toFixed(0).toLocaleString() : 0}</div>
                     <p>Average LTV</p>
                 </div>
                 </div>
@@ -3290,7 +3411,7 @@ const handleSettingChange = (settingKey) => {
                             </div>
                             <div className="table-cell">{customer.lastActive}</div>
                             <div className="table-cell">{customer.totalOrders}</div>
-                            <div className="table-cell">₹{customer.totalSpent.toLocaleString()}</div>
+                            <div className="table-cell">₹{typeof customer.totalSpent === 'number' ? customer.totalSpent.toLocaleString() : customer.totalSpent}</div>
                             <div className="table-cell">
                               <button
                                 className="action-btn edit-btn"
@@ -3393,7 +3514,7 @@ const handleSettingChange = (settingKey) => {
                 <div className="charts-row">
                 <div className="chart-card">
                   <h3>User Engagement</h3>
-                  <LineChart data={revenueTrend.length > 0 ? revenueTrend.map((d, i) => ({ day: d.day, value: d.value / 1000 })) : lineChartData.map((d, i) => ({ day: d.day, value: d.value / 1000 }))} />
+                  <LineChart data={revenueTrend.length > 0 ? revenueTrend.map((d, i) => ({ day: d.day, value: d.value / 1000 })) : []} />
                 </div>
                 <div className="chart-card">
                     <h3>Conversion Funnel</h3>
@@ -3470,7 +3591,7 @@ const handleSettingChange = (settingKey) => {
 
     <div className="chart-card">
       <h3>Campaign Performance</h3>
-      <LineChart data={revenueTrend.length > 0 ? revenueTrend.map((d, i) => ({ day: d.day, value: d.value / 500 })) : lineChartData.map((d, i) => ({ day: d.day, value: d.value / 500 }))} />
+      <LineChart data={revenueTrend.length > 0 ? revenueTrend.map((d, i) => ({ day: d.day, value: d.value / 500 })) : []} />
     </div>
   </motion.section>
 )}
@@ -3824,7 +3945,7 @@ const handleSettingChange = (settingKey) => {
             <div className="charts-row">
             <div className="chart-card">
                 <h3>Revenue Trend</h3>
-                <LineChart data={lineChartData} />
+                <LineChart data={revenueTrend.length > 0 ? revenueTrend : []} />
             </div>
             <div className="chart-card">
                 <h3>Expense Breakdown</h3>

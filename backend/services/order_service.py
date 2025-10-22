@@ -210,6 +210,106 @@ class OrderService:
         )
 
     @staticmethod
+    async def list_orders_admin(
+        user_id: Optional[str] = None,
+        status: Optional[OrderStatus] = None,
+        payment_status: Optional[PaymentStatus] = None,
+        search: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 50,
+        sort_by: str = "created_at",
+        sort_order: str = "-1"
+    ) -> OrderListResponse:
+        """List orders for admin with advanced filters"""
+        query = {}
+
+        if user_id:
+            query["user_id"] = user_id
+        if status:
+            query["status"] = status
+        if payment_status:
+            query["payment_status"] = payment_status
+
+        # Date range filter
+        if start_date or end_date:
+            date_query = {}
+            if start_date:
+                from datetime import datetime
+                date_query["$gte"] = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            if end_date:
+                from datetime import datetime
+                date_query["$lte"] = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            query["created_at"] = date_query
+
+        # Search filter (order number, customer name, email)
+        if search:
+            search_regex = {"$regex": search, "$options": "i"}
+            query["$or"] = [
+                {"order_number": search_regex},
+                {"user.first_name": search_regex},
+                {"user.last_name": search_regex},
+                {"user.email": search_regex}
+            ]
+
+        # Get total count
+        total = await MongoDB.get_collection(ORDERS_COLLECTION).count_documents(query)
+
+        # Build sort
+        sort_direction = -1 if sort_order == "-1" else 1
+        sort_field = sort_by
+        if sort_by == "total_amount":
+            sort_field = "total_amount"
+        elif sort_by == "total_amount_asc":
+            sort_field = "total_amount"
+            sort_direction = 1
+        elif sort_by == "created_at_asc":
+            sort_field = "created_at"
+            sort_direction = 1
+        elif sort_by == "status":
+            sort_field = "status"
+
+        # Get orders with user information
+        pipeline = [
+            {"$match": query},
+            {
+                "$lookup": {
+                    "from": "users",
+                    "localField": "user_id",
+                    "foreignField": "_id",
+                    "as": "user"
+                }
+            },
+            {"$unwind": {"path": "$user", "preserveNullAndEmptyArrays": True}},
+            {"$sort": {sort_field: sort_direction}},
+            {"$skip": skip},
+            {"$limit": limit}
+        ]
+
+        cursor = MongoDB.get_collection(ORDERS_COLLECTION).aggregate(pipeline)
+
+        orders = []
+        async for order_doc in cursor:
+            order_doc["id"] = order_doc["_id"]
+            # Convert ObjectId to string for user
+            if order_doc.get("user"):
+                order_doc["user"]["id"] = str(order_doc["user"]["_id"])
+                del order_doc["user"]["_id"]
+            order = OrderInDB(**order_doc)
+            orders.append(OrderResponse(**order.dict()))
+
+        return OrderListResponse(
+            orders=orders,
+            total=total,
+            page=(skip // limit) + 1,
+            limit=limit,
+            has_next=(skip + limit) < total,
+            has_prev=skip > 0
+        )
+
+
+    @staticmethod
     async def get_order_stats() -> OrderStats:
         """Get order statistics"""
         pipeline = [

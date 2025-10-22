@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import Optional, List
 from models.user import UserResponse, UserUpdate, UserStats, UserCreate
 from models.product import ProductStats, ProductListResponse, ProductSearchFilters, ProductResponse, ProductStatus
-from models.order import OrderStats
+from models.order import OrderStats, OrderListResponse, OrderResponse, OrderUpdate, OrderStatus, PaymentStatus
 from models.security import SecurityStats, LoginHistory, SecurityEvent, DeviceInfo
 from services.user_service import UserService
 from services.product_service import ProductService
@@ -598,6 +598,51 @@ async def get_customer_satisfaction(current_user: UserInDB = Depends(get_current
             detail="Failed to get customer satisfaction data"
         )
 
+@router.get("/customers/stats")
+async def get_customer_stats(current_user: UserInDB = Depends(get_current_admin_user)):
+    """Get customer statistics including total orders and total spent (Admin only)"""
+    try:
+        # Get all customers
+        customers = await UserService.list_users(role="customer", limit=1000)
+
+        customer_stats = []
+        for customer in customers:
+            # Get order stats for this customer
+            pipeline = [
+                {"$match": {"user_id": customer.id}},
+                {
+                    "$group": {
+                        "_id": "$user_id",
+                        "total_orders": {"$sum": 1},
+                        "total_spent": {"$sum": "$total_amount"}
+                    }
+                }
+            ]
+
+            result = await MongoDB.get_collection(ORDERS_COLLECTION).aggregate(pipeline).to_list(1)
+
+            if result:
+                stats = result[0]
+                customer_stats.append({
+                    "id": customer.id,
+                    "total_orders": stats.get("total_orders", 0),
+                    "total_spent": stats.get("total_spent", 0.0)
+                })
+            else:
+                customer_stats.append({
+                    "id": customer.id,
+                    "total_orders": 0,
+                    "total_spent": 0.0
+                })
+
+        return customer_stats
+    except Exception as e:
+        logger.error(f"Get customer stats error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get customer statistics"
+        )
+
 @router.get("/analytics/traffic")
 async def get_traffic_sources(current_user: UserInDB = Depends(get_current_admin_user)):
     """Get traffic sources data (Admin only)"""
@@ -761,6 +806,209 @@ async def get_revenue_trend(current_user: UserInDB = Depends(get_current_admin_u
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to get revenue trend data"
+        )
+
+# Order Management Endpoints for Admin
+@router.get("/orders", response_model=OrderListResponse)
+async def list_orders_admin(
+    user_id: Optional[str] = None,
+    status: Optional[OrderStatus] = None,
+    payment_status: Optional[PaymentStatus] = None,
+    search: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=1000),
+    sort_by: str = "created_at",
+    sort_order: str = Query("-1", regex="^(1|-1)$"),
+    current_user: UserInDB = Depends(get_current_admin_user)
+):
+    """List all orders for admin management (Admin only)"""
+    try:
+        result = await OrderService.list_orders_admin(
+            user_id=user_id,
+            status=status,
+            payment_status=payment_status,
+            search=search,
+            start_date=start_date,
+            end_date=end_date,
+            skip=skip,
+            limit=limit,
+            sort_by=sort_by,
+            sort_order=sort_order
+        )
+        return result
+    except Exception as e:
+        logger.error(f"List orders admin error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list orders"
+        )
+
+@router.get("/orders/{order_id}", response_model=OrderResponse)
+async def get_order_admin(
+    order_id: str,
+    current_user: UserInDB = Depends(get_current_admin_user)
+):
+    """Get order by ID for admin (Admin only)"""
+    try:
+        order = await OrderService.get_order_by_id(order_id)
+        if not order:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Order not found"
+            )
+        return OrderResponse(**order.dict())
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get order admin error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get order"
+        )
+
+@router.put("/orders/{order_id}", response_model=OrderResponse)
+async def update_order_admin(
+    order_id: str,
+    update_data: OrderUpdate,
+    current_user: UserInDB = Depends(get_current_admin_user)
+):
+    """Update order information (Admin only)"""
+    try:
+        order = await OrderService.update_order(order_id, update_data)
+        if not order:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Order not found"
+            )
+        return OrderResponse(**order.dict())
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update order admin error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update order"
+        )
+
+@router.post("/orders/bulk-update")
+async def bulk_update_orders_admin(
+    update_data: dict,
+    current_user: UserInDB = Depends(get_current_admin_user)
+):
+    """Bulk update order status (Admin only)"""
+    try:
+        if "order_ids" not in update_data or "status" not in update_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="order_ids and status fields are required"
+            )
+
+        order_ids = update_data["order_ids"]
+        status_value = update_data["status"]
+
+        if not isinstance(order_ids, list) or len(order_ids) == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="order_ids must be a non-empty list"
+            )
+
+        if status_value not in [s.value for s in OrderStatus]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status. Must be one of: {[s.value for s in OrderStatus]}"
+            )
+
+        updated_orders = []
+        for order_id in order_ids:
+            order = await OrderService.update_order(order_id, OrderUpdate(status=OrderStatus(status_value)))
+            if order:
+                updated_orders.append(OrderResponse(**order.dict()))
+
+        return {
+            "message": f"Updated {len(updated_orders)} orders successfully",
+            "updated_orders": updated_orders
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Bulk update orders admin error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to bulk update orders"
+        )
+
+@router.get("/orders/export")
+async def export_orders_admin(
+    user_id: Optional[str] = None,
+    status: Optional[OrderStatus] = None,
+    payment_status: Optional[PaymentStatus] = None,
+    search: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: UserInDB = Depends(get_current_admin_user)
+):
+    """Export orders to CSV (Admin only)"""
+    try:
+        orders = await OrderService.list_orders_admin(
+            user_id=user_id,
+            status=status,
+            payment_status=payment_status,
+            search=search,
+            start_date=start_date,
+            end_date=end_date,
+            limit=10000  # Large limit for export
+        )
+
+        # Generate CSV content
+        import csv
+        import io
+        from fastapi.responses import StreamingResponse
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Write header
+        writer.writerow([
+            'Order Number', 'Customer', 'Email', 'Status', 'Payment Status',
+            'Total Amount', 'Items Count', 'Created Date', 'Shipping Address'
+        ])
+
+        # Write data
+        for order in orders.orders:
+            customer_name = f"{order.user.first_name} {order.user.last_name}" if order.user else "N/A"
+            customer_email = order.user.email if order.user else "N/A"
+            items_count = len(order.items)
+            shipping_address = f"{order.shipping_address.city}, {order.shipping_address.state}"
+
+            writer.writerow([
+                order.order_number,
+                customer_name,
+                customer_email,
+                order.status.value,
+                order.payment_status.value,
+                f"${order.total_amount:.2f}",
+                items_count,
+                order.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                shipping_address
+            ])
+
+        output.seek(0)
+
+        def generate():
+            yield output.getvalue()
+
+        return StreamingResponse(
+            generate(),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=orders_export.csv"}
+        )
+    except Exception as e:
+        logger.error(f"Export orders admin error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to export orders"
         )
 
 # Product Management Endpoints for Admin

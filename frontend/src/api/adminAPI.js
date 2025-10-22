@@ -147,6 +147,18 @@ export const adminAPI = {
     }, 100);
   },
 
+  getCustomerStats: async () => {
+    return debounceApiCall('customer-stats', async () => {
+      try {
+        const response = await axiosClient.get('/admin/customers/stats');
+        return response.data;
+      } catch (error) {
+        console.error('Failed to fetch customer stats via REST API:', error);
+        throw error;
+      }
+    }, 100);
+  },
+
   // Traffic sources endpoints
   getTrafficSources: async () => {
     return debounceApiCall('traffic-sources', async () => {
@@ -263,7 +275,7 @@ export const adminAPI = {
         }
       });
       const queryString = queryParams.toString();
-      const response = await axiosClient.get(`/orders${queryString ? `?${queryString}` : ''}`);
+      const response = await axiosClient.get(`/admin/orders${queryString ? `?${queryString}` : ''}`);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch orders:', error);
@@ -297,9 +309,9 @@ export const adminAPI = {
 
   bulkUpdateOrderStatus: async (orderIds, status) => {
     try {
-      const response = await axiosClient.post('/orders/bulk-update', {
+      const response = await axiosClient.patch('/admin/orders/bulk-status', {
         order_ids: orderIds,
-        status
+        status: status
       });
       return response.data;
     } catch (error) {
@@ -310,7 +322,7 @@ export const adminAPI = {
 
   getOrderStats: async () => {
     try {
-      const response = await axiosClient.get('/orders/stats');
+      const response = await axiosClient.get('/admin/stats/orders');
       return response.data;
     } catch (error) {
       console.error('Failed to fetch order stats:', error);
