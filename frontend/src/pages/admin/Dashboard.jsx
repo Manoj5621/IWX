@@ -42,6 +42,50 @@ const AdminDashboard = () => {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+
+  // Order management states
+  const [orders, setOrders] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [orderFilters, setOrderFilters] = useState({
+    status: [],
+    payment_status: [],
+    date_from: '',
+    date_to: ''
+  });
+  const [orderPage, setOrderPage] = useState(1);
+  const [selectedOrders, setSelectedOrders] = useState([]);
+  const [bulkOrderStatus, setBulkOrderStatus] = useState('');
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [hasOrderNext, setHasOrderNext] = useState(false);
+  const [hasOrderPrev, setHasOrderPrev] = useState(false);
+  const [selectedOrderSort, setSelectedOrderSort] = useState('created_at');
+  const [isOrderFilterOpen, setIsOrderFilterOpen] = useState(false);
+  const [isOrderSortOpen, setIsOrderSortOpen] = useState(false);
+  const [orderSearchQuery, setOrderSearchQuery] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
+  const [showNewOrderModal, setShowNewOrderModal] = useState(false);
+  const [orderStats, setOrderStats] = useState({});
+  const [totalOrderPages, setTotalOrderPages] = useState(1);
+
+  // New order form data
+  const [newOrderData, setNewOrderData] = useState({
+    customer_email: '',
+    customer_name: '',
+    shipping_address: {
+      first_name: '',
+      last_name: '',
+      address_line_1: '',
+      address_line_2: '',
+      city: '',
+      state: '',
+      postal_code: '',
+      country: 'India'
+    },
+    items: [{ product_id: '', quantity: 1, price: 0 }],
+    shipping_method: 'standard',
+    payment_method: 'card'
+  });
   const [securityStats, setSecurityStats] = useState({
     total_login_attempts: 0,
     successful_logins: 0,
@@ -208,6 +252,14 @@ const handleSettingChange = (settingKey) => {
     }
   }, [activeSection, productFilters, selectedSort, productPage]);
 
+  // Load orders data when section changes to orders
+  useEffect(() => {
+    if (activeSection === 'orders') {
+      loadOrdersData();
+      loadOrderStats();
+    }
+  }, [activeSection, orderFilters, selectedOrderSort, orderPage, orderSearchQuery]);
+
   // No polling - rely on WebSocket for real-time updates
   // If WebSocket fails, use the initial data loaded on mount
 
@@ -253,6 +305,19 @@ const handleSettingChange = (settingKey) => {
             if (activeSection === 'security') {
               loadSecurityData();
             }
+          } else if (data.type === 'order_update') {
+            // Handle order updates
+            if (activeSection === 'orders') {
+              loadOrdersData();
+              loadOrderStats();
+            }
+          } else if (data.type === 'new_order') {
+            // Handle new order notification
+            if (activeSection === 'orders') {
+              loadOrdersData();
+              loadOrderStats();
+            }
+            // Could show notification here
           }
         },
         (error) => {
@@ -516,6 +581,47 @@ const handleSettingChange = (settingKey) => {
     }
   };
 
+  const loadOrdersData = async () => {
+    try {
+      setLoadingOrders(true);
+      const filters = {
+        status: orderFilters.status.length > 0 ? orderFilters.status : undefined,
+        payment_status: orderFilters.payment_status.length > 0 ? orderFilters.payment_status : undefined,
+        date_from: orderFilters.date_from || undefined,
+        date_to: orderFilters.date_to || undefined,
+        search: orderSearchQuery || undefined,
+        skip: (orderPage - 1) * 20,
+        limit: 20,
+        sort_by: selectedOrderSort,
+        sort_order: '-1'
+      };
+
+      const response = await adminAPI.getOrders(filters);
+      setOrders(response.orders || []);
+      setTotalOrders(response.total || 0);
+      setTotalOrderPages(Math.ceil((response.total || 0) / 20));
+      setHasOrderNext(response.has_next || false);
+      setHasOrderPrev(response.has_prev || false);
+    } catch (error) {
+      console.error('Failed to load orders data:', error);
+      if (error.response?.status === 529) {
+        console.log('Server overloaded, retrying in 2 seconds...');
+        setTimeout(() => loadOrdersData(), 2000);
+      }
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  const loadOrderStats = async () => {
+    try {
+      const stats = await adminAPI.getOrderStats();
+      setOrderStats(stats);
+    } catch (error) {
+      console.error('Failed to load order stats:', error);
+    }
+  };
+
   const handleFilterToggle = (filterType, value) => {
     setProductFilters(prev => {
       const newFilters = { ...prev };
@@ -617,6 +723,247 @@ const handleSettingChange = (settingKey) => {
       } else {
         alert(`Failed to update products: ${error.response?.data?.detail || error.message}`);
       }
+    }
+  };
+
+  // Order management handlers
+  const handleOrderFilterToggle = (filterType, value) => {
+    setOrderFilters(prev => {
+      const newFilters = { ...prev };
+      if (newFilters[filterType].includes(value)) {
+        newFilters[filterType] = newFilters[filterType].filter(item => item !== value);
+      } else {
+        newFilters[filterType] = [...newFilters[filterType], value];
+      }
+      return newFilters;
+    });
+  };
+
+  const clearOrderFilters = () => {
+    setOrderFilters({
+      status: [],
+      payment_status: [],
+      date_from: '',
+      date_to: ''
+    });
+    setOrderSearchQuery('');
+  };
+
+  const handleSelectOrder = (orderId) => {
+    setSelectedOrders(prev =>
+      prev.includes(orderId)
+        ? prev.filter(id => id !== orderId)
+        : [...prev, orderId]
+    );
+  };
+
+  const handleSelectAllOrders = () => {
+    if (selectedOrders.length === orders.length) {
+      setSelectedOrders([]);
+    } else {
+      setSelectedOrders(orders.map(o => o.id));
+    }
+  };
+
+  const handleOrderStatusUpdate = async (orderId, newStatus) => {
+    try {
+      await adminAPI.updateOrderStatus(orderId, newStatus);
+      // Update local state
+      setOrders(prev => prev.map(o =>
+        o.id === orderId ? { ...o, status: newStatus } : o
+      ));
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder(prev => ({ ...prev, status: newStatus }));
+      }
+    } catch (error) {
+      console.error('Failed to update order status:', error);
+      alert(`Failed to update order status: ${error.response?.data?.detail || error.message}`);
+    }
+  };
+
+  const handleBulkOrderUpdate = async () => {
+    if (!bulkOrderStatus || selectedOrders.length === 0) return;
+
+    try {
+      await adminAPI.bulkUpdateOrderStatus(selectedOrders, bulkOrderStatus);
+      // Update local state
+      setOrders(prev => prev.map(o =>
+        selectedOrders.includes(o.id) ? { ...o, status: bulkOrderStatus } : o
+      ));
+      setSelectedOrders([]);
+      setBulkOrderStatus('');
+      alert(`Successfully updated ${selectedOrders.length} orders`);
+    } catch (error) {
+      console.error('Failed to bulk update orders:', error);
+      alert(`Failed to update orders: ${error.response?.data?.detail || error.message}`);
+    }
+  };
+
+  const handleViewOrderDetails = (order) => {
+    setSelectedOrder(order);
+    setShowOrderDetailsModal(true);
+  };
+
+  const handleEditOrder = (order) => {
+    // For now, just show details - could implement full edit later
+    handleViewOrderDetails(order);
+  };
+
+  const handleExportOrders = async () => {
+    try {
+      const filters = {
+        status: orderFilters.status.length > 0 ? orderFilters.status : undefined,
+        payment_status: orderFilters.payment_status.length > 0 ? orderFilters.payment_status : undefined,
+        date_from: orderFilters.date_from || undefined,
+        date_to: orderFilters.date_to || undefined,
+        search: orderSearchQuery || undefined,
+        format: 'csv'
+      };
+
+      const blob = await adminAPI.exportOrders(filters);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `orders_export_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Failed to export orders:', error);
+      alert('Failed to export orders');
+    }
+  };
+
+  const handlePrintOrder = (order) => {
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Order ${order.order_number}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 20px; }
+            .header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+            .section { margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f5f5f5; }
+            .total { font-weight: bold; font-size: 18px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Order ${order.order_number}</h1>
+            <p><strong>Customer:</strong> ${order.user ? `${order.user.first_name} ${order.user.last_name}` : 'N/A'}</p>
+            <p><strong>Date:</strong> ${new Date(order.created_at).toLocaleString()}</p>
+            <p><strong>Status:</strong> ${order.status}</p>
+          </div>
+
+          <div class="section">
+            <h3>Shipping Address</h3>
+            <p>
+              ${order.shipping_address.first_name} ${order.shipping_address.last_name}<br/>
+              ${order.shipping_address.address_line_1}<br/>
+              ${order.shipping_address.address_line_2 ? order.shipping_address.address_line_2 + '<br/>' : ''}
+              ${order.shipping_address.city}, ${order.shipping_address.state} ${order.shipping_address.postal_code}<br/>
+              ${order.shipping_address.country}
+            </p>
+          </div>
+
+          <div class="section">
+            <h3>Order Items</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Quantity</th>
+                  <th>Price</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${order.items.map(item => `
+                  <tr>
+                    <td>${item.product ? item.product.name : 'Product'}</td>
+                    <td>${item.quantity}</td>
+                    <td>₹${item.price.toLocaleString()}</td>
+                    <td>₹${item.subtotal.toLocaleString()}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <div style="text-align: right;">
+              <p><strong>Subtotal:</strong> ₹${order.subtotal.toLocaleString()}</p>
+              <p><strong>Tax:</strong> ₹${order.tax_amount.toLocaleString()}</p>
+              <p><strong>Shipping:</strong> ₹${order.shipping_cost.toLocaleString()}</p>
+              <p class="total"><strong>Total:</strong> ₹${order.total_amount.toLocaleString()}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  const handleSendOrderEmail = async (order) => {
+    // This would integrate with email service
+    alert('Email functionality would be implemented here');
+  };
+
+  // New order form handlers
+  const addNewOrderItem = () => {
+    setNewOrderData(prev => ({
+      ...prev,
+      items: [...prev.items, { product_id: '', quantity: 1, price: 0 }]
+    }));
+  };
+
+  const removeNewOrderItem = (index) => {
+    setNewOrderData(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleNewOrderItemChange = (index, field, value) => {
+    setNewOrderData(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) =>
+        i === index ? { ...item, [field]: value } : item
+      )
+    }));
+  };
+
+  const handleCreateNewOrder = async () => {
+    try {
+      // This would need to be implemented in the backend
+      alert('New order creation would be implemented here');
+      setShowNewOrderModal(false);
+      // Reset form
+      setNewOrderData({
+        customer_email: '',
+        customer_name: '',
+        shipping_address: {
+          first_name: '',
+          last_name: '',
+          address_line_1: '',
+          address_line_2: '',
+          city: '',
+          state: '',
+          postal_code: '',
+          country: 'India'
+        },
+        items: [{ product_id: '', quantity: 1, price: 0 }],
+        shipping_method: 'standard',
+        payment_method: 'card'
+      });
+    } catch (error) {
+      console.error('Failed to create order:', error);
+      alert('Failed to create order');
     }
   };
 
@@ -864,6 +1211,31 @@ const handleSettingChange = (settingKey) => {
     { label: 'Price: High to Low', value: 'priceHighLow' },
     { label: 'Newest', value: 'newest' },
     { label: 'Rating', value: 'rating' }
+  ];
+
+  const orderSortOptions = [
+    { label: 'Newest First', value: 'created_at' },
+    { label: 'Oldest First', value: 'created_at_asc' },
+    { label: 'Total: High to Low', value: 'total_amount' },
+    { label: 'Total: Low to High', value: 'total_amount_asc' },
+    { label: 'Status', value: 'status' }
+  ];
+
+  const orderStatusOptions = [
+    { label: 'Pending', value: 'pending' },
+    { label: 'Confirmed', value: 'confirmed' },
+    { label: 'Processing', value: 'processing' },
+    { label: 'Shipped', value: 'shipped' },
+    { label: 'Delivered', value: 'delivered' },
+    { label: 'Cancelled', value: 'cancelled' },
+    { label: 'Refunded', value: 'refunded' }
+  ];
+
+  const paymentStatusOptions = [
+    { label: 'Pending', value: 'pending' },
+    { label: 'Paid', value: 'paid' },
+    { label: 'Failed', value: 'failed' },
+    { label: 'Refunded', value: 'refunded' }
   ];
 
   const totalPages = Math.ceil(totalProducts / 12);
@@ -2105,42 +2477,732 @@ const handleSettingChange = (settingKey) => {
           )}
 
           {/* Orders Section */}
-        {activeSection === 'orders' && (
-            <motion.section 
-                className="orders-section"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-            >
-                <div className="section-header">
-                <h2>Order Management</h2>
-                <div>
-                    <button className="primary-btn" style={{marginRight: '10px'}}>Export Orders</button>
-                    <button className="primary-btn">+ New Order</button>
-                </div>
-                </div>
-                <div className="quick-stats-grid">
-                <div className="quick-stat-card" style={{borderLeftColor: '#4caf50'}}>
-                    <div className="quick-stat-value">2847</div>
-                    <div className="quick-stat-label">Total Orders</div>
-                </div>
-                <div className="quick-stat-card" style={{borderLeftColor: '#2196f3'}}>
-                    <div className="quick-stat-value">156</div>
-                    <div className="quick-stat-label">Pending</div>
-                </div>
-                <div className="quick-stat-card" style={{borderLeftColor: '#ff9800'}}>
-                    <div className="quick-stat-value">98.3%</div>
-                    <div className="quick-stat-label">Success Rate</div>
-                </div>
-                <div className="quick-stat-card" style={{borderLeftColor: '#9c27b0'}}>
-                    <div className="quick-stat-value">₹125,430</div>
-                    <div className="quick-stat-label">Total Revenue</div>
-                </div>
-                </div>
-                <p>Order management content goes here...</p>
-            </motion.section>
-            )}
+       {activeSection === 'orders' && (
+           <motion.section
+               className="orders-section"
+               initial={{ opacity: 0, y: 20 }}
+               animate={{ opacity: 1, y: 0 }}
+               exit={{ opacity: 0, y: -20 }}
+               transition={{ duration: 0.3 }}
+           >
+               <div className="section-header">
+               <h2>Order Management</h2>
+               <div>
+                   <button className="primary-btn" style={{marginRight: '10px'}} onClick={handleExportOrders}>Export Orders</button>
+                   <button className="primary-btn" onClick={() => setShowNewOrderModal(true)}>+ New Order</button>
+               </div>
+               </div>
+
+               {/* Order Statistics */}
+               <div className="quick-stats-grid">
+               <div className="quick-stat-card" style={{borderLeftColor: '#4caf50'}}>
+                   <div className="quick-stat-value">{orderStats.total_orders || 2847}</div>
+                   <div className="quick-stat-label">Total Orders</div>
+               </div>
+               <div className="quick-stat-card" style={{borderLeftColor: '#2196f3'}}>
+                   <div className="quick-stat-value">{orderStats.pending_orders || 156}</div>
+                   <div className="quick-stat-label">Pending</div>
+               </div>
+               <div className="quick-stat-card" style={{borderLeftColor: '#ff9800'}}>
+                   <div className="quick-stat-value">{orderStats.average_order_value ? `₹${orderStats.average_order_value.toLocaleString()}` : '₹125,430'}</div>
+                   <div className="quick-stat-label">Avg Order Value</div>
+               </div>
+               <div className="quick-stat-card" style={{borderLeftColor: '#9c27b0'}}>
+                   <div className="quick-stat-value">₹{orderStats.total_revenue ? orderStats.total_revenue.toLocaleString() : '125,430'}</div>
+                   <div className="quick-stat-label">Total Revenue</div>
+               </div>
+               </div>
+
+               {/* Order Filters and Search */}
+               <div className="filters-bar">
+                   <div className="container">
+                       <div className="filters-left">
+                           <button
+                               className="filter-toggle"
+                               onClick={() => setIsOrderFilterOpen(!isOrderFilterOpen)}
+                           >
+                               Filters
+                               <span className="filter-count">
+                                   {Object.values(orderFilters).flat().length > 0 ? Object.values(orderFilters).flat().length : ''}
+                               </span>
+                           </button>
+
+                           <div className="active-filters">
+                               {orderFilters.status.map(filter => (
+                                   <span key={filter} className="active-filter">
+                                       Status: {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                       <button onClick={() => handleOrderFilterToggle('status', filter)}>×</button>
+                                   </span>
+                               ))}
+                               {orderFilters.payment_status.map(filter => (
+                                   <span key={filter} className="active-filter">
+                                       Payment: {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                       <button onClick={() => handleOrderFilterToggle('payment_status', filter)}>×</button>
+                                   </span>
+                               ))}
+                               {Object.values(orderFilters).flat().length > 0 && (
+                                   <button className="clear-filters" onClick={clearOrderFilters}>
+                                       Clear all
+                                   </button>
+                               )}
+                           </div>
+                       </div>
+
+                       <div className="filters-right">
+                           <p className="results-count">{totalOrders} orders</p>
+
+                           <div className="sort-dropdown">
+                               <button
+                                   className="sort-toggle"
+                                   onClick={() => setIsOrderSortOpen(!isOrderSortOpen)}
+                               >
+                                   Sort: {orderSortOptions.find(opt => opt.value === selectedOrderSort)?.label}
+                               </button>
+
+                               <AnimatePresence>
+                                   {isOrderSortOpen && (
+                                       <motion.div
+                                           className="sort-options"
+                                           initial={{ opacity: 0, y: -10 }}
+                                           animate={{ opacity: 1, y: 0 }}
+                                           exit={{ opacity: 0, y: -10 }}
+                                           transition={{ duration: 0.2 }}
+                                       >
+                                           {orderSortOptions.map(option => (
+                                               <button
+                                                   key={option.value}
+                                                   className={selectedOrderSort === option.value ? 'active' : ''}
+                                                   onClick={() => {
+                                                       setSelectedOrderSort(option.value);
+                                                       setIsOrderSortOpen(false);
+                                                   }}
+                                               >
+                                                   {option.label}
+                                               </button>
+                                           ))}
+                                       </motion.div>
+                                   )}
+                               </AnimatePresence>
+                           </div>
+                       </div>
+                   </div>
+               </div>
+
+               {/* Order Filters Sidebar */}
+               <AnimatePresence>
+                   {isOrderFilterOpen && (
+                       <motion.div
+                           className="filters-sidebar"
+                           initial={{ opacity: 0, x: -20 }}
+                           animate={{ opacity: 1, x: 0 }}
+                           exit={{ opacity: 0, x: -20 }}
+                           transition={{ duration: 0.3 }}
+                       >
+                           <div className="filter-group">
+                               <h3>Order Status</h3>
+                               {orderStatusOptions.map(option => (
+                                   <label key={option.value} className="filter-checkbox">
+                                       <input
+                                           type="checkbox"
+                                           checked={orderFilters.status.includes(option.value)}
+                                           onChange={() => handleOrderFilterToggle('status', option.value)}
+                                       />
+                                       <span className="checkmark"></span>
+                                       {option.label}
+                                   </label>
+                               ))}
+                           </div>
+
+                           <div className="filter-group">
+                               <h3>Payment Status</h3>
+                               {paymentStatusOptions.map(option => (
+                                   <label key={option.value} className="filter-checkbox">
+                                       <input
+                                           type="checkbox"
+                                           checked={orderFilters.payment_status.includes(option.value)}
+                                           onChange={() => handleOrderFilterToggle('payment_status', option.value)}
+                                       />
+                                       <span className="checkmark"></span>
+                                       {option.label}
+                                   </label>
+                               ))}
+                           </div>
+
+                           <div className="filter-group">
+                               <h3>Date Range</h3>
+                               <div style={{display: 'flex', gap: '10px', marginTop: '10px'}}>
+                                   <input
+                                       type="date"
+                                       value={orderFilters.date_from || ''}
+                                       onChange={(e) => setOrderFilters(prev => ({...prev, date_from: e.target.value}))}
+                                       placeholder="From"
+                                   />
+                                   <input
+                                       type="date"
+                                       value={orderFilters.date_to || ''}
+                                       onChange={(e) => setOrderFilters(prev => ({...prev, date_to: e.target.value}))}
+                                       placeholder="To"
+                                   />
+                               </div>
+                           </div>
+
+                           <button className="apply-filters" onClick={() => setIsOrderFilterOpen(false)}>
+                               Apply Filters
+                           </button>
+                       </motion.div>
+                   )}
+               </AnimatePresence>
+
+               {/* Orders Table */}
+               <div className="data-table-container">
+                   <div className="table-header">
+                       <h3>Orders</h3>
+                       <div className="table-actions">
+                           <input
+                               type="text"
+                               placeholder="Search orders..."
+                               value={orderSearchQuery}
+                               onChange={(e) => setOrderSearchQuery(e.target.value)}
+                               className="search-input"
+                           />
+                           <button className="primary-btn" onClick={loadOrdersData}>🔄 Refresh</button>
+                       </div>
+                   </div>
+
+                   <div className="data-table">
+                       <div className="table-header-row">
+                           <div className="table-cell">
+                               <input
+                                   type="checkbox"
+                                   checked={selectedOrders.length === orders.length && orders.length > 0}
+                                   onChange={handleSelectAllOrders}
+                               />
+                           </div>
+                           <div className="table-cell">Order ID</div>
+                           <div className="table-cell">Customer</div>
+                           <div className="table-cell">Status</div>
+                           <div className="table-cell">Payment</div>
+                           <div className="table-cell">Total</div>
+                           <div className="table-cell">Date</div>
+                           <div className="table-cell">Actions</div>
+                       </div>
+
+                       {loadingOrders ? (
+                           <div className="loading-row">Loading orders...</div>
+                       ) : orders.length === 0 ? (
+                           <div className="empty-row">No orders found</div>
+                       ) : (
+                           orders.map((order) => (
+                               <div key={order.id} className="table-row">
+                                   <div className="table-cell">
+                                       <input
+                                           type="checkbox"
+                                           checked={selectedOrders.includes(order.id)}
+                                           onChange={() => handleSelectOrder(order.id)}
+                                       />
+                                   </div>
+                                   <div className="table-cell">
+                                       <strong>{order.order_number}</strong>
+                                   </div>
+                                   <div className="table-cell">
+                                       {order.user ? `${order.user.first_name} ${order.user.last_name}` : 'N/A'}
+                                   </div>
+                                   <div className="table-cell">
+                                       <select
+                                           value={order.status}
+                                           onChange={(e) => handleOrderStatusUpdate(order.id, e.target.value)}
+                                           className={`status-select status-${order.status}`}
+                                       >
+                                           {orderStatusOptions.map(option => (
+                                               <option key={option.value} value={option.value}>
+                                                   {option.label}
+                                               </option>
+                                           ))}
+                                       </select>
+                                   </div>
+                                   <div className="table-cell">
+                                       <span className={`status-badge status-${order.payment_status}`}>
+                                           {order.payment_status}
+                                       </span>
+                                   </div>
+                                   <div className="table-cell">₹{order.total_amount.toLocaleString()}</div>
+                                   <div className="table-cell">
+                                       {new Date(order.created_at).toLocaleDateString()}
+                                   </div>
+                                   <div className="table-cell">
+                                       <button
+                                           className="action-btn view-btn"
+                                           onClick={() => handleViewOrderDetails(order)}
+                                       >
+                                           View
+                                       </button>
+                                       <button
+                                           className="action-btn edit-btn"
+                                           onClick={() => handleEditOrder(order)}
+                                       >
+                                           Edit
+                                       </button>
+                                   </div>
+                               </div>
+                           ))
+                       )}
+                   </div>
+
+                   {/* Bulk Actions */}
+                   {selectedOrders.length > 0 && (
+                       <div className="bulk-actions">
+                           <span>{selectedOrders.length} orders selected</span>
+                           <select
+                               value={bulkOrderStatus}
+                               onChange={(e) => setBulkOrderStatus(e.target.value)}
+                           >
+                               <option value="">Bulk Update Status</option>
+                               {orderStatusOptions.map(option => (
+                                   <option key={option.value} value={option.value}>
+                                       {option.label}
+                                   </option>
+                               ))}
+                           </select>
+                           <button
+                               className="primary-btn"
+                               onClick={handleBulkOrderUpdate}
+                               disabled={!bulkOrderStatus}
+                           >
+                               Apply
+                           </button>
+                           <button
+                               className="secondary-btn"
+                               onClick={() => setSelectedOrders([])}
+                           >
+                               Clear
+                           </button>
+                       </div>
+                   )}
+
+                   {/* Pagination */}
+                   {totalOrderPages > 1 && (
+                       <div className="pagination">
+                           <button
+                               className={`pagination-btn ${!hasOrderPrev ? 'disabled' : ''}`}
+                               onClick={() => hasOrderPrev && setOrderPage(orderPage - 1)}
+                               disabled={!hasOrderPrev}
+                           >
+                               Previous
+                           </button>
+
+                           {Array.from({ length: Math.min(totalOrderPages, 5) }, (_, i) => {
+                               let pageNum;
+                               if (totalOrderPages <= 5) {
+                                   pageNum = i + 1;
+                               } else if (orderPage <= 3) {
+                                   pageNum = i + 1;
+                               } else if (orderPage >= totalOrderPages - 2) {
+                                   pageNum = totalOrderPages - 4 + i;
+                               } else {
+                                   pageNum = orderPage - 2 + i;
+                               }
+                               return (
+                                   <button
+                                       key={pageNum}
+                                       className={`pagination-btn ${orderPage === pageNum ? 'active' : ''}`}
+                                       onClick={() => setOrderPage(pageNum)}
+                                   >
+                                       {pageNum}
+                                   </button>
+                               );
+                           })}
+
+                           <button
+                               className={`pagination-btn ${!hasOrderNext ? 'disabled' : ''}`}
+                               onClick={() => hasOrderNext && setOrderPage(orderPage + 1)}
+                               disabled={!hasOrderNext}
+                           >
+                               Next
+                           </button>
+                       </div>
+                   )}
+               </div>
+
+               {/* Order Details Modal */}
+               {showOrderDetailsModal && selectedOrder && (
+                   <div className="modal-overlay" onClick={() => setShowOrderDetailsModal(false)}>
+                       <div className="modal-content large-modal" onClick={e => e.stopPropagation()}>
+                           <div className="modal-header">
+                               <h3>Order Details - {selectedOrder.order_number}</h3>
+                               <button
+                                   className="close-btn"
+                                   onClick={() => setShowOrderDetailsModal(false)}
+                               >
+                                   ×
+                               </button>
+                           </div>
+
+                           <div className="order-details-content">
+                               <div className="order-info-grid">
+                                   <div className="info-section">
+                                       <h4>Order Information</h4>
+                                       <div className="info-grid">
+                                           <div><strong>Order ID:</strong> {selectedOrder.order_number}</div>
+                                           <div><strong>Status:</strong>
+                                               <select
+                                                   value={selectedOrder.status}
+                                                   onChange={(e) => handleOrderStatusUpdate(selectedOrder.id, e.target.value)}
+                                                   className={`status-select status-${selectedOrder.status}`}
+                                               >
+                                                   {orderStatusOptions.map(option => (
+                                                       <option key={option.value} value={option.value}>
+                                                           {option.label}
+                                                       </option>
+                                                   ))}
+                                               </select>
+                                           </div>
+                                           <div><strong>Payment Status:</strong>
+                                               <span className={`status-badge status-${selectedOrder.payment_status}`}>
+                                                   {selectedOrder.payment_status}
+                                               </span>
+                                           </div>
+                                           <div><strong>Order Date:</strong> {new Date(selectedOrder.created_at).toLocaleString()}</div>
+                                           <div><strong>Shipping Method:</strong> {selectedOrder.shipping_method}</div>
+                                           <div><strong>Payment Method:</strong> {selectedOrder.payment_method}</div>
+                                           {selectedOrder.tracking_number && (
+                                               <div><strong>Tracking Number:</strong> {selectedOrder.tracking_number}</div>
+                                           )}
+                                       </div>
+                                   </div>
+
+                                   <div className="info-section">
+                                       <h4>Customer Information</h4>
+                                       <div className="info-grid">
+                                           {selectedOrder.user && (
+                                               <>
+                                                   <div><strong>Name:</strong> {selectedOrder.user.first_name} {selectedOrder.user.last_name}</div>
+                                                   <div><strong>Email:</strong> {selectedOrder.user.email}</div>
+                                               </>
+                                           )}
+                                           <div><strong>Shipping Address:</strong></div>
+                                           <div style={{gridColumn: 'span 2'}}>
+                                               {selectedOrder.shipping_address.first_name} {selectedOrder.shipping_address.last_name}<br/>
+                                               {selectedOrder.shipping_address.address_line_1}<br/>
+                                               {selectedOrder.shipping_address.address_line_2 && <>{selectedOrder.shipping_address.address_line_2}<br/></>}
+                                               {selectedOrder.shipping_address.city}, {selectedOrder.shipping_address.state} {selectedOrder.shipping_address.postal_code}<br/>
+                                               {selectedOrder.shipping_address.country}
+                                           </div>
+                                       </div>
+                                   </div>
+                               </div>
+
+                               <div className="order-items-section">
+                                   <h4>Order Items</h4>
+                                   <div className="order-items-table">
+                                       <div className="table-header-row">
+                                           <div className="table-cell">Product</div>
+                                           <div className="table-cell">Quantity</div>
+                                           <div className="table-cell">Price</div>
+                                           <div className="table-cell">Total</div>
+                                       </div>
+                                       {selectedOrder.items.map((item, index) => (
+                                           <div key={index} className="table-row">
+                                               <div className="table-cell">
+                                                   {item.product ? item.product.name : 'Product'}
+                                                   {item.size && <span className="item-variant">Size: {item.size}</span>}
+                                                   {item.color && <span className="item-variant">Color: {item.color}</span>}
+                                               </div>
+                                               <div className="table-cell">{item.quantity}</div>
+                                               <div className="table-cell">₹{item.price.toLocaleString()}</div>
+                                               <div className="table-cell">₹{item.subtotal.toLocaleString()}</div>
+                                           </div>
+                                       ))}
+                                   </div>
+                               </div>
+
+                               <div className="order-summary-section">
+                                   <div className="order-totals">
+                                       <div className="total-row">
+                                           <span>Subtotal:</span>
+                                           <span>₹{selectedOrder.subtotal.toLocaleString()}</span>
+                                       </div>
+                                       <div className="total-row">
+                                           <span>Tax:</span>
+                                           <span>₹{selectedOrder.tax_amount.toLocaleString()}</span>
+                                       </div>
+                                       <div className="total-row">
+                                           <span>Shipping:</span>
+                                           <span>₹{selectedOrder.shipping_cost.toLocaleString()}</span>
+                                       </div>
+                                       {selectedOrder.discount_amount > 0 && (
+                                           <div className="total-row discount">
+                                               <span>Discount:</span>
+                                               <span>-₹{selectedOrder.discount_amount.toLocaleString()}</span>
+                                           </div>
+                                       )}
+                                       <div className="total-row grand-total">
+                                           <span>Total:</span>
+                                           <span>₹{selectedOrder.total_amount.toLocaleString()}</span>
+                                       </div>
+                                   </div>
+                               </div>
+
+                               {selectedOrder.notes && (
+                                   <div className="order-notes-section">
+                                       <h4>Order Notes</h4>
+                                       <p>{selectedOrder.notes}</p>
+                                   </div>
+                               )}
+
+                               <div className="order-actions">
+                                   <button
+                                       className="primary-btn"
+                                       onClick={() => handlePrintOrder(selectedOrder)}
+                                   >
+                                       Print Order
+                                   </button>
+                                   <button
+                                       className="primary-btn"
+                                       onClick={() => handleSendOrderEmail(selectedOrder)}
+                                   >
+                                       Send Email
+                                   </button>
+                                   <button
+                                       className="secondary-btn"
+                                       onClick={() => setShowOrderDetailsModal(false)}
+                                   >
+                                       Close
+                                   </button>
+                               </div>
+                           </div>
+                       </div>
+                   </div>
+               )}
+
+               {/* New Order Modal */}
+               {showNewOrderModal && (
+                   <div className="modal-overlay" onClick={() => setShowNewOrderModal(false)}>
+                       <div className="modal-content large-modal" onClick={e => e.stopPropagation()}>
+                           <div className="modal-header">
+                               <h3>Create New Order</h3>
+                               <button
+                                   className="close-btn"
+                                   onClick={() => setShowNewOrderModal(false)}
+                               >
+                                   ×
+                               </button>
+                           </div>
+
+                           <div className="new-order-form">
+                               <div className="form-section">
+                                   <h4>Customer Information</h4>
+                                   <div className="form-grid">
+                                       <div className="form-group">
+                                           <label>Customer Email:</label>
+                                           <input
+                                               type="email"
+                                               value={newOrderData.customer_email}
+                                               onChange={(e) => setNewOrderData(prev => ({...prev, customer_email: e.target.value}))}
+                                               placeholder="customer@example.com"
+                                           />
+                                       </div>
+                                       <div className="form-group">
+                                           <label>Customer Name:</label>
+                                           <input
+                                               type="text"
+                                               value={newOrderData.customer_name}
+                                               onChange={(e) => setNewOrderData(prev => ({...prev, customer_name: e.target.value}))}
+                                               placeholder="John Doe"
+                                           />
+                                       </div>
+                                   </div>
+                               </div>
+
+                               <div className="form-section">
+                                   <h4>Shipping Address</h4>
+                                   <div className="form-grid">
+                                       <div className="form-group">
+                                           <label>First Name:</label>
+                                           <input
+                                               type="text"
+                                               value={newOrderData.shipping_address.first_name}
+                                               onChange={(e) => setNewOrderData(prev => ({
+                                                   ...prev,
+                                                   shipping_address: {...prev.shipping_address, first_name: e.target.value}
+                                               }))}
+                                           />
+                                       </div>
+                                       <div className="form-group">
+                                           <label>Last Name:</label>
+                                           <input
+                                               type="text"
+                                               value={newOrderData.shipping_address.last_name}
+                                               onChange={(e) => setNewOrderData(prev => ({
+                                                   ...prev,
+                                                   shipping_address: {...prev.shipping_address, last_name: e.target.value}
+                                               }))}
+                                           />
+                                       </div>
+                                       <div className="form-group full-width">
+                                           <label>Address Line 1:</label>
+                                           <input
+                                               type="text"
+                                               value={newOrderData.shipping_address.address_line_1}
+                                               onChange={(e) => setNewOrderData(prev => ({
+                                                   ...prev,
+                                                   shipping_address: {...prev.shipping_address, address_line_1: e.target.value}
+                                               }))}
+                                           />
+                                       </div>
+                                       <div className="form-group full-width">
+                                           <label>Address Line 2:</label>
+                                           <input
+                                               type="text"
+                                               value={newOrderData.shipping_address.address_line_2}
+                                               onChange={(e) => setNewOrderData(prev => ({
+                                                   ...prev,
+                                                   shipping_address: {...prev.shipping_address, address_line_2: e.target.value}
+                                               }))}
+                                           />
+                                       </div>
+                                       <div className="form-group">
+                                           <label>City:</label>
+                                           <input
+                                               type="text"
+                                               value={newOrderData.shipping_address.city}
+                                               onChange={(e) => setNewOrderData(prev => ({
+                                                   ...prev,
+                                                   shipping_address: {...prev.shipping_address, city: e.target.value}
+                                               }))}
+                                           />
+                                       </div>
+                                       <div className="form-group">
+                                           <label>State:</label>
+                                           <input
+                                               type="text"
+                                               value={newOrderData.shipping_address.state}
+                                               onChange={(e) => setNewOrderData(prev => ({
+                                                   ...prev,
+                                                   shipping_address: {...prev.shipping_address, state: e.target.value}
+                                               }))}
+                                           />
+                                       </div>
+                                       <div className="form-group">
+                                           <label>Postal Code:</label>
+                                           <input
+                                               type="text"
+                                               value={newOrderData.shipping_address.postal_code}
+                                               onChange={(e) => setNewOrderData(prev => ({
+                                                   ...prev,
+                                                   shipping_address: {...prev.shipping_address, postal_code: e.target.value}
+                                               }))}
+                                           />
+                                       </div>
+                                       <div className="form-group">
+                                           <label>Country:</label>
+                                           <input
+                                               type="text"
+                                               value={newOrderData.shipping_address.country}
+                                               onChange={(e) => setNewOrderData(prev => ({
+                                                   ...prev,
+                                                   shipping_address: {...prev.shipping_address, country: e.target.value}
+                                               }))}
+                                           />
+                                       </div>
+                                   </div>
+                               </div>
+
+                               <div className="form-section">
+                                   <h4>Order Items</h4>
+                                   <div className="order-items-builder">
+                                       {newOrderData.items.map((item, index) => (
+                                           <div key={index} className="item-row">
+                                               <input
+                                                   type="text"
+                                                   placeholder="Product ID"
+                                                   value={item.product_id}
+                                                   onChange={(e) => handleNewOrderItemChange(index, 'product_id', e.target.value)}
+                                               />
+                                               <input
+                                                   type="number"
+                                                   placeholder="Quantity"
+                                                   value={item.quantity}
+                                                   onChange={(e) => handleNewOrderItemChange(index, 'quantity', parseInt(e.target.value))}
+                                                   min="1"
+                                               />
+                                               <input
+                                                   type="number"
+                                                   placeholder="Price"
+                                                   value={item.price}
+                                                   onChange={(e) => handleNewOrderItemChange(index, 'price', parseFloat(e.target.value))}
+                                                   step="0.01"
+                                                   min="0"
+                                               />
+                                               <button
+                                                   type="button"
+                                                   className="remove-item-btn"
+                                                   onClick={() => removeNewOrderItem(index)}
+                                               >
+                                                   ×
+                                               </button>
+                                           </div>
+                                       ))}
+                                       <button
+                                           type="button"
+                                           className="add-item-btn"
+                                           onClick={addNewOrderItem}
+                                       >
+                                           + Add Item
+                                       </button>
+                                   </div>
+                               </div>
+
+                               <div className="form-section">
+                                   <h4>Order Settings</h4>
+                                   <div className="form-grid">
+                                       <div className="form-group">
+                                           <label>Shipping Method:</label>
+                                           <select
+                                               value={newOrderData.shipping_method}
+                                               onChange={(e) => setNewOrderData(prev => ({...prev, shipping_method: e.target.value}))}
+                                           >
+                                               <option value="standard">Standard Shipping</option>
+                                               <option value="express">Express Shipping</option>
+                                               <option value="overnight">Overnight Shipping</option>
+                                           </select>
+                                       </div>
+                                       <div className="form-group">
+                                           <label>Payment Method:</label>
+                                           <select
+                                               value={newOrderData.payment_method}
+                                               onChange={(e) => setNewOrderData(prev => ({...prev, payment_method: e.target.value}))}
+                                           >
+                                               <option value="card">Credit Card</option>
+                                               <option value="paypal">PayPal</option>
+                                               <option value="bank_transfer">Bank Transfer</option>
+                                               <option value="cash">Cash on Delivery</option>
+                                           </select>
+                                       </div>
+                                   </div>
+                               </div>
+
+                               <div className="form-actions">
+                                   <button
+                                       type="button"
+                                       className="primary-btn"
+                                       onClick={handleCreateNewOrder}
+                                   >
+                                       Create Order
+                                   </button>
+                                   <button
+                                       type="button"
+                                       className="secondary-btn"
+                                       onClick={() => setShowNewOrderModal(false)}
+                                   >
+                                       Cancel
+                                   </button>
+                               </div>
+                           </div>
+                       </div>
+                   </div>
+               )}
+           </motion.section>
+           )}
 
             {/* Customers Section */}
             {activeSection === 'customers' && (

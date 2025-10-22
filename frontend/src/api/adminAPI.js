@@ -247,5 +247,178 @@ export const adminAPI = {
       console.error('Failed to bulk update product status:', error);
       throw error;
     }
+  },
+
+  // Order management endpoints
+  getOrders: async (params = {}) => {
+    try {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          if (Array.isArray(value)) {
+            value.forEach(v => queryParams.append(key, v));
+          } else {
+            queryParams.append(key, value);
+          }
+        }
+      });
+      const queryString = queryParams.toString();
+      const response = await axiosClient.get(`/orders${queryString ? `?${queryString}` : ''}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch orders:', error);
+      throw error;
+    }
+  },
+
+  getOrderById: async (orderId) => {
+    try {
+      const response = await axiosClient.get(`/orders/${orderId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch order:', error);
+      throw error;
+    }
+  },
+
+  updateOrderStatus: async (orderId, status, trackingNumber = null, notes = null) => {
+    try {
+      const response = await axiosClient.put(`/orders/${orderId}`, {
+        status,
+        tracking_number: trackingNumber,
+        notes
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to update order status:', error);
+      throw error;
+    }
+  },
+
+  bulkUpdateOrderStatus: async (orderIds, status) => {
+    try {
+      const response = await axiosClient.post('/orders/bulk-update', {
+        order_ids: orderIds,
+        status
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to bulk update orders:', error);
+      throw error;
+    }
+  },
+
+  getOrderStats: async () => {
+    try {
+      const response = await axiosClient.get('/orders/stats');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch order stats:', error);
+      throw error;
+    }
+  },
+
+  exportOrders: async (params = {}) => {
+    try {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          if (Array.isArray(value)) {
+            value.forEach(v => queryParams.append(key, v));
+          } else {
+            queryParams.append(key, value);
+          }
+        }
+      });
+      const queryString = queryParams.toString();
+      const response = await axiosClient.get(`/orders/export${queryString ? `?${queryString}` : ''}`, {
+        responseType: 'blob'
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to export orders:', error);
+      throw error;
+    }
+  },
+
+  // Return/Refund management endpoints
+  getReturnRequests: async (params = {}) => {
+    try {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          if (Array.isArray(value)) {
+            value.forEach(v => queryParams.append(key, v));
+          } else {
+            queryParams.append(key, value);
+          }
+        }
+      });
+      const queryString = queryParams.toString();
+      const response = await axiosClient.get(`/returns${queryString ? `?${queryString}` : ''}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch return requests:', error);
+      throw error;
+    }
+  },
+
+  updateReturnRequest: async (returnId, updateData) => {
+    try {
+      const response = await axiosClient.put(`/returns/${returnId}`, updateData);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to update return request:', error);
+      throw error;
+    }
+  },
+
+  getReturnStats: async () => {
+    try {
+      const response = await axiosClient.get('/returns/stats');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch return stats:', error);
+      throw error;
+    }
+  },
+
+  // Order analytics endpoints
+  getOrderAnalytics: async (params = {}) => {
+    try {
+      const queryParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          queryParams.append(key, value);
+        }
+      });
+      const queryString = queryParams.toString();
+      const response = await axiosClient.get(`/orders/analytics${queryString ? `?${queryString}` : ''}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch order analytics:', error);
+      throw error;
+    }
+  },
+
+  // Order notifications
+  getOrderNotifications: async () => {
+    try {
+      const response = await axiosClient.get('/orders/notifications');
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch order notifications:', error);
+      throw error;
+    }
+  },
+
+  markNotificationRead: async (notificationId) => {
+    try {
+      const response = await axiosClient.put(`/orders/notifications/${notificationId}/read`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+      throw error;
+    }
   }
 };
