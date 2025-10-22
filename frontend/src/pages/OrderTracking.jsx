@@ -1,3 +1,4 @@
+// OrderTracking.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -10,62 +11,62 @@ import { updateUser } from '../redux/slices/authSlice';
 import './OrderTracking.css';
 
 const OrderTracking = () => {
-   const { orderId } = useParams();
-   const navigate = useNavigate();
-   const { user } = useSelector(state => state.auth);
-   const dispatch = useDispatch();
-   const [order, setOrder] = useState(null);
-   const [loading, setLoading] = useState(true);
-   const [error, setError] = useState(null);
-   const [activeTab, setActiveTab] = useState('overview');
-   const [productImages, setProductImages] = useState({});
+  const { orderId } = useParams();
+  const navigate = useNavigate();
+  const { user } = useSelector(state => state.auth);
+  const dispatch = useDispatch();
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [productImages, setProductImages] = useState({});
 
   useEffect(() => {
-     const fetchOrder = async () => {
-       if (!orderId) {
-         setError('Order ID is required');
-         setLoading(false);
-         return;
-       }
+    const fetchOrder = async () => {
+      if (!orderId) {
+        setError('Order ID is required');
+        setLoading(false);
+        return;
+      }
 
-       try {
-         const orderData = await orderAPI.getOrderById(orderId);
-         setOrder(orderData);
+      try {
+        const orderData = await orderAPI.getOrderById(orderId);
+        setOrder(orderData);
 
-         // Set active tab from user preferences for this order
-         const orderTabKey = `last_active_tab_order_${orderId}`;
-         if (user?.preferences?.[orderTabKey]) {
-           setActiveTab(user.preferences[orderTabKey]);
-         }
+        // Set active tab from user preferences for this order
+        const orderTabKey = `last_active_tab_order_${orderId}`;
+        if (user?.preferences?.[orderTabKey]) {
+          setActiveTab(user.preferences[orderTabKey]);
+        }
 
-         // Fetch product images for order items
-         if (orderData.items && orderData.items.length > 0) {
-           const images = {};
-           for (const item of orderData.items) {
-             const productId = item.product_id || item.id;
-             if (productId && !images[productId]) {
-               try {
-                 const productData = await productAPI.getProduct(productId);
-                 if (productData.images && productData.images.length > 0) {
-                   images[productId] = productData.images[0];
-                 }
-               } catch (err) {
-                 console.warn(`Failed to fetch image for product ${productId}:`, err);
-               }
-             }
-           }
-           setProductImages(images);
-         }
-       } catch (err) {
-         console.error('Error fetching order:', err);
-         setError('Failed to load order details');
-       } finally {
-         setLoading(false);
-       }
-     };
+        // Fetch product images for order items
+        if (orderData.items && orderData.items.length > 0) {
+          const images = {};
+          for (const item of orderData.items) {
+            const productId = item.product_id || item.id;
+            if (productId && !images[productId]) {
+              try {
+                const productData = await productAPI.getProduct(productId);
+                if (productData.images && productData.images.length > 0) {
+                  images[productId] = productData.images[0];
+                }
+              } catch (err) {
+                console.warn(`Failed to fetch image for product ${productId}:`, err);
+              }
+            }
+          }
+          setProductImages(images);
+        }
+      } catch (err) {
+        console.error('Error fetching order:', err);
+        setError('Failed to load order details');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-     fetchOrder();
-   }, [orderId, user]);
+    fetchOrder();
+  }, [orderId, user]);
 
   const getStatusColor = (status) => {
     const colors = {
@@ -146,10 +147,25 @@ const OrderTracking = () => {
     return (
       <div className="order-tracking-container">
         <Navbar />
-        <div className="loading-container">
-          <div className="loading-spinner"></div>
-          <p>Loading order details...</p>
-        </div>
+        <motion.div 
+          className="loading-container"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <motion.div 
+            className="loading-spinner"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          ></motion.div>
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+          >
+            Loading order details...
+          </motion.p>
+        </motion.div>
       </div>
     );
   }
@@ -158,14 +174,30 @@ const OrderTracking = () => {
     return (
       <div className="order-tracking-container">
         <Navbar />
-        <div className="error-container">
-          <div className="error-icon">⚠️</div>
+        <motion.div 
+          className="error-container"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <motion.div 
+            className="error-icon"
+            animate={{ scale: [1, 1.1, 1] }}
+            transition={{ duration: 1, repeat: Infinity }}
+          >
+            ⚠️
+          </motion.div>
           <h2>Order Not Found</h2>
           <p>{error}</p>
-          <button onClick={() => navigate('/profile')} className="back-button">
+          <motion.button 
+            onClick={() => navigate('/profile')} 
+            className="back-button"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
             Back to Profile
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
       </div>
     );
   }
@@ -174,14 +206,30 @@ const OrderTracking = () => {
     return (
       <div className="order-tracking-container">
         <Navbar />
-        <div className="error-container">
-          <div className="error-icon">📦</div>
+        <motion.div 
+          className="error-container"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <motion.div 
+            className="error-icon"
+            animate={{ y: [0, -10, 0] }}
+            transition={{ duration: 2, repeat: Infinity }}
+          >
+            📦
+          </motion.div>
           <h2>Order Not Found</h2>
           <p>The order you're looking for doesn't exist or you don't have permission to view it.</p>
-          <button onClick={() => navigate('/profile')} className="back-button">
+          <motion.button 
+            onClick={() => navigate('/profile')} 
+            className="back-button"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
             Back to Profile
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
       </div>
     );
   }
@@ -190,16 +238,37 @@ const OrderTracking = () => {
     <div className="order-tracking-container">
       <Navbar />
 
-      <div className="order-tracking-header">
+      <motion.div 
+        className="order-tracking-header"
+        initial={{ opacity: 0, y: -50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7 }}
+      >
         <div className="container">
           <div className="order-header-content">
-            <div className="order-title">
+            <motion.div 
+              className="order-title"
+              initial={{ opacity: 0, x: -30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+            >
               <h1>Order #{order.order_number}</h1>
-              <div className="order-status-badge" style={{ backgroundColor: getStatusColor(order.status) }}>
+              <motion.div 
+                className="order-status-badge" 
+                style={{ backgroundColor: getStatusColor(order.status) }}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.4, type: "spring" }}
+              >
                 {getStatusIcon(order.status)} {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-              </div>
-            </div>
-            <div className="order-meta">
+              </motion.div>
+            </motion.div>
+            <motion.div 
+              className="order-meta"
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+            >
               <div className="meta-item">
                 <span className="meta-label">Order Date:</span>
                 <span className="meta-value">{formatDate(order.created_at)}</span>
@@ -208,45 +277,40 @@ const OrderTracking = () => {
                 <span className="meta-label">Total:</span>
                 <span className="meta-value total-amount">{formatCurrency(order.total_amount)}</span>
               </div>
-            </div>
+            </motion.div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       <div className="order-tracking-content">
         <div className="container">
-          <div className="tracking-tabs">
-            <button
-              className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
-              onClick={() => handleTabChange('overview')}
-            >
-              Overview
-            </button>
-            <button
-              className={`tab-button ${activeTab === 'items' ? 'active' : ''}`}
-              onClick={() => handleTabChange('items')}
-            >
-              Order Items
-            </button>
-            <button
-              className={`tab-button ${activeTab === 'shipping' ? 'active' : ''}`}
-              onClick={() => handleTabChange('shipping')}
-            >
-              Shipping & Delivery
-            </button>
-            <button
-              className={`tab-button ${activeTab === 'payment' ? 'active' : ''}`}
-              onClick={() => handleTabChange('payment')}
-            >
-              Payment Details
-            </button>
-            <button
-              className={`tab-button ${activeTab === 'timeline' ? 'active' : ''}`}
-              onClick={() => handleTabChange('timeline')}
-            >
-              Order Timeline
-            </button>
-          </div>
+          <motion.div 
+            className="tracking-tabs"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
+            {[
+              { id: 'overview', label: 'Overview' },
+              { id: 'items', label: 'Order Items' },
+              { id: 'shipping', label: 'Shipping & Delivery' },
+              { id: 'payment', label: 'Payment Details' },
+              { id: 'timeline', label: 'Order Timeline' }
+            ].map((tab, index) => (
+              <motion.button
+                key={tab.id}
+                className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
+                onClick={() => handleTabChange(tab.id)}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 + index * 0.1 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {tab.label}
+              </motion.button>
+            ))}
+          </motion.div>
 
           <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
@@ -256,117 +320,157 @@ const OrderTracking = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 className="tab-content"
+                transition={{ duration: 0.3 }}
               >
                 <div className="overview-grid">
-                  <div className="overview-card progress-card">
+                  <motion.div 
+                    className="overview-card progress-card"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.1 }}
+                  >
                     <h3>Order Progress</h3>
                     <div className="progress-container">
                       <div className="progress-bar">
-                        <div
+                        <motion.div
                           className="progress-fill"
-                          style={{
-                            width: `${getStatusProgress(order.status)}%`,
-                            backgroundColor: getStatusColor(order.status)
-                          }}
-                        ></div>
+                          initial={{ width: 0 }}
+                          animate={{ width: `${getStatusProgress(order.status)}%` }}
+                          transition={{ delay: 0.8, duration: 1, ease: "easeOut" }}
+                          style={{ backgroundColor: getStatusColor(order.status) }}
+                        ></motion.div>
                       </div>
                       <div className="progress-steps">
-                        <div className={`step ${['pending', 'confirmed', 'processing', 'shipped', 'delivered'].includes(order.status) ? 'completed' : ''}`}>
-                          <div className="step-icon">📋</div>
-                          <span>Ordered</span>
-                        </div>
-                        <div className={`step ${['confirmed', 'processing', 'shipped', 'delivered'].includes(order.status) ? 'completed' : ''}`}>
-                          <div className="step-icon">✅</div>
-                          <span>Confirmed</span>
-                        </div>
-                        <div className={`step ${['processing', 'shipped', 'delivered'].includes(order.status) ? 'completed' : ''}`}>
-                          <div className="step-icon">⚙️</div>
-                          <span>Processing</span>
-                        </div>
-                        <div className={`step ${['shipped', 'delivered'].includes(order.status) ? 'completed' : ''}`}>
-                          <div className="step-icon">🚚</div>
-                          <span>Shipped</span>
-                        </div>
-                        <div className={`step ${order.status === 'delivered' ? 'completed' : ''}`}>
-                          <div className="step-icon">📦</div>
-                          <span>Delivered</span>
-                        </div>
+                        {[
+                          { icon: '📋', label: 'Ordered', status: ['pending', 'confirmed', 'processing', 'shipped', 'delivered'] },
+                          { icon: '✅', label: 'Confirmed', status: ['confirmed', 'processing', 'shipped', 'delivered'] },
+                          { icon: '⚙️', label: 'Processing', status: ['processing', 'shipped', 'delivered'] },
+                          { icon: '🚚', label: 'Shipped', status: ['shipped', 'delivered'] },
+                          { icon: '📦', label: 'Delivered', status: ['delivered'] }
+                        ].map((step, index) => (
+                          <motion.div
+                            key={step.label}
+                            className={`step ${step.status.includes(order.status) ? 'completed' : ''}`}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.9 + index * 0.1 }}
+                          >
+                            <div className="step-icon">{step.icon}</div>
+                            <span>{step.label}</span>
+                          </motion.div>
+                        ))}
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
 
-                  <div className="overview-card summary-card">
+                  <motion.div 
+                    className="overview-card summary-card"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2 }}
+                  >
                     <h3>Order Summary</h3>
                     <div className="summary-details">
-                      <div className="summary-row">
-                        <span>Subtotal:</span>
-                        <span>{formatCurrency(order.subtotal)}</span>
-                      </div>
-                      <div className="summary-row">
-                        <span>Shipping:</span>
-                        <span>{order.shipping_cost === 0 ? 'FREE' : formatCurrency(order.shipping_cost)}</span>
-                      </div>
-                      <div className="summary-row">
-                        <span>Tax:</span>
-                        <span>{formatCurrency(order.tax_amount)}</span>
-                      </div>
-                      <div className="summary-row total">
-                        <span>Total:</span>
-                        <span>{formatCurrency(order.total_amount)}</span>
-                      </div>
+                      {[
+                        { label: 'Subtotal:', value: formatCurrency(order.subtotal) },
+                        { label: 'Shipping:', value: order.shipping_cost === 0 ? 'FREE' : formatCurrency(order.shipping_cost) },
+                        { label: 'Tax:', value: formatCurrency(order.tax_amount) },
+                        { label: 'Total:', value: formatCurrency(order.total_amount), isTotal: true }
+                      ].map((item, index) => (
+                        <motion.div
+                          key={item.label}
+                          className={`summary-row ${item.isTotal ? 'total' : ''}`}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 1 + index * 0.1 }}
+                        >
+                          <span>{item.label}</span>
+                          <span>{item.value}</span>
+                        </motion.div>
+                      ))}
                     </div>
-                  </div>
+                  </motion.div>
 
-                  <div className="overview-card next-steps-card">
+                  <motion.div 
+                    className="overview-card next-steps-card"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.3 }}
+                  >
                     <h3>Next Steps</h3>
                     <div className="next-steps-content">
                       {order.status === 'pending' && (
-                        <div className="next-step">
+                        <motion.div 
+                          className="next-step"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 1.1 }}
+                        >
                           <div className="step-icon">⏳</div>
                           <div className="step-content">
                             <h4>Order Confirmation Pending</h4>
                             <p>We're reviewing your order. You'll receive a confirmation email shortly.</p>
                           </div>
-                        </div>
+                        </motion.div>
                       )}
                       {order.status === 'confirmed' && (
-                        <div className="next-step">
+                        <motion.div 
+                          className="next-step"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 1.1 }}
+                        >
                           <div className="step-icon">⚙️</div>
                           <div className="step-content">
                             <h4>Order Being Processed</h4>
                             <p>We're preparing your items for shipment. This usually takes 1-2 business days.</p>
                           </div>
-                        </div>
+                        </motion.div>
                       )}
                       {order.status === 'processing' && (
-                        <div className="next-step">
+                        <motion.div 
+                          className="next-step"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 1.1 }}
+                        >
                           <div className="step-icon">📦</div>
                           <div className="step-content">
                             <h4>Ready for Shipment</h4>
                             <p>Your order is packed and ready to ship. You'll receive tracking information soon.</p>
                           </div>
-                        </div>
+                        </motion.div>
                       )}
                       {order.status === 'shipped' && (
-                        <div className="next-step">
+                        <motion.div 
+                          className="next-step"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 1.1 }}
+                        >
                           <div className="step-icon">🚚</div>
                           <div className="step-content">
                             <h4>Out for Delivery</h4>
                             <p>Your order is on its way! Track your package using the tracking number below.</p>
                           </div>
-                        </div>
+                        </motion.div>
                       )}
                       {order.status === 'delivered' && (
-                        <div className="next-step">
+                        <motion.div 
+                          className="next-step"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 1.1 }}
+                        >
                           <div className="step-icon">✅</div>
                           <div className="step-content">
                             <h4>Order Delivered</h4>
                             <p>Your order has been successfully delivered. Enjoy your purchase!</p>
                           </div>
-                        </div>
+                        </motion.div>
                       )}
                     </div>
-                  </div>
+                  </motion.div>
                 </div>
               </motion.div>
             )}
@@ -378,19 +482,29 @@ const OrderTracking = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 className="tab-content"
+                transition={{ duration: 0.3 }}
               >
                 <div className="order-items-section">
                   <h3>Order Items ({order.items?.length || 0})</h3>
                   <div className="order-items-list">
                     {order.items?.map((item, index) => (
-                      <div key={index} className="order-item-card">
+                      <motion.div 
+                        key={index} 
+                        className="order-item-card"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                        whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                      >
                         <div className="item-image">
-                          <img
+                          <motion.img
                             src={productImages[item.product_id || item.id] ? `data:image/jpeg;base64,${productImages[item.product_id || item.id]}` : item.product?.images?.[0] ? `data:image/jpeg;base64,${item.product?.images?.[0]}` : item.image ? `data:image/jpeg;base64,${item.image}` : '/logo.png'}
                             alt={item.product?.name || item.name || 'Product'}
                             onError={(e) => {
                               e.target.src = '/logo.png';
                             }}
+                            whileHover={{ scale: 1.05 }}
+                            transition={{ duration: 0.3 }}
                           />
                         </div>
                         <div className="item-details">
@@ -410,14 +524,16 @@ const OrderTracking = () => {
                           </div>
                         </div>
                         <div className="item-actions">
-                          <button
+                          <motion.button
                             className="view-product-btn"
                             onClick={() => navigate(`/productDetails/${item.product_id || item.id}`)}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
                           >
                             View Product
-                          </button>
+                          </motion.button>
                         </div>
-                      </div>
+                      </motion.div>
                     )) || (
                       <div className="no-items">
                         <p>No items found in this order.</p>
@@ -435,10 +551,16 @@ const OrderTracking = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 className="tab-content"
+                transition={{ duration: 0.3 }}
               >
                 <div className="shipping-section">
                   <div className="shipping-grid">
-                    <div className="shipping-card">
+                    <motion.div 
+                      className="shipping-card"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 }}
+                    >
                       <h3>Shipping Address</h3>
                       <div className="address-details">
                         <p className="address-name">
@@ -461,9 +583,14 @@ const OrderTracking = () => {
                           <p className="address-phone">📞 {order.shipping_address.phone}</p>
                         )}
                       </div>
-                    </div>
+                    </motion.div>
 
-                    <div className="shipping-card">
+                    <motion.div 
+                      className="shipping-card"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.2 }}
+                    >
                       <h3>Billing Address</h3>
                       <div className="address-details">
                         <p className="address-name">
@@ -486,9 +613,14 @@ const OrderTracking = () => {
                           <p className="address-phone">📞 {order.billing_address.phone}</p>
                         )}
                       </div>
-                    </div>
+                    </motion.div>
 
-                    <div className="shipping-card">
+                    <motion.div 
+                      className="shipping-card"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 }}
+                    >
                       <h3>Shipping Method</h3>
                       <div className="shipping-method-details">
                         <div className="method-name">
@@ -505,10 +637,15 @@ const OrderTracking = () => {
                           {order.shipping_method === 'overnight' && 'Next business day'}
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
 
                     {order.tracking_number && (
-                      <div className="shipping-card">
+                      <motion.div 
+                        className="shipping-card"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.4 }}
+                      >
                         <h3>Tracking Information</h3>
                         <div className="tracking-details">
                           <div className="tracking-number">
@@ -519,11 +656,15 @@ const OrderTracking = () => {
                             <span className="tracking-label">Carrier:</span>
                             <span className="tracking-value">UPS</span>
                           </div>
-                          <button className="track-package-btn">
+                          <motion.button 
+                            className="track-package-btn"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                          >
                             Track Package
-                          </button>
+                          </motion.button>
                         </div>
-                      </div>
+                      </motion.div>
                     )}
                   </div>
                 </div>
@@ -537,10 +678,16 @@ const OrderTracking = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 className="tab-content"
+                transition={{ duration: 0.3 }}
               >
                 <div className="payment-section">
                   <div className="payment-grid">
-                    <div className="payment-card">
+                    <motion.div 
+                      className="payment-card"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                    >
                       <h3>Payment Method</h3>
                       <div className="payment-method-details">
                         <div className="payment-type">
@@ -563,66 +710,87 @@ const OrderTracking = () => {
                           </span>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
 
-                    <div className="payment-card">
+                    <motion.div 
+                      className="payment-card"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 }}
+                    >
                       <h3>Payment Breakdown</h3>
                       <div className="payment-breakdown">
-                        <div className="breakdown-row">
-                          <span>Items Subtotal:</span>
-                          <span>{formatCurrency(order.subtotal)}</span>
-                        </div>
-                        <div className="breakdown-row">
-                          <span>Shipping:</span>
-                          <span>{order.shipping_cost === 0 ? 'FREE' : formatCurrency(order.shipping_cost)}</span>
-                        </div>
-                        <div className="breakdown-row">
-                          <span>Tax:</span>
-                          <span>{formatCurrency(order.tax_amount)}</span>
-                        </div>
-                        {order.discount_amount > 0 && (
-                          <div className="breakdown-row discount">
-                            <span>Discount:</span>
-                            <span>-{formatCurrency(order.discount_amount)}</span>
-                          </div>
-                        )}
-                        <div className="breakdown-row total">
-                          <span>Total Paid:</span>
-                          <span>{formatCurrency(order.total_amount)}</span>
-                        </div>
+                        {[
+                          { label: 'Items Subtotal:', value: formatCurrency(order.subtotal) },
+                          { label: 'Shipping:', value: order.shipping_cost === 0 ? 'FREE' : formatCurrency(order.shipping_cost) },
+                          { label: 'Tax:', value: formatCurrency(order.tax_amount) },
+                          ...(order.discount_amount > 0 ? [{ label: 'Discount:', value: `-${formatCurrency(order.discount_amount)}`, isDiscount: true }] : []),
+                          { label: 'Total Paid:', value: formatCurrency(order.total_amount), isTotal: true }
+                        ].map((item, index) => (
+                          <motion.div
+                            key={item.label}
+                            className={`breakdown-row ${item.isDiscount ? 'discount' : ''} ${item.isTotal ? 'total' : ''}`}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.3 + index * 0.1 }}
+                          >
+                            <span>{item.label}</span>
+                            <span>{item.value}</span>
+                          </motion.div>
+                        ))}
                       </div>
-                    </div>
+                    </motion.div>
 
-                    <div className="payment-card">
+                    <motion.div 
+                      className="payment-card"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 }}
+                    >
                       <h3>Payment Timeline</h3>
                       <div className="payment-timeline">
-                        <div className="timeline-item">
+                        <motion.div 
+                          className="timeline-item"
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: 0.4 }}
+                        >
                           <div className="timeline-icon">💳</div>
                           <div className="timeline-content">
                             <h4>Payment Authorized</h4>
                             <p>{formatDate(order.created_at)}</p>
                           </div>
-                        </div>
+                        </motion.div>
                         {order.payment_status === 'paid' && (
-                          <div className="timeline-item">
+                          <motion.div 
+                            className="timeline-item"
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.5 }}
+                          >
                             <div className="timeline-icon">✅</div>
                             <div className="timeline-content">
                               <h4>Payment Completed</h4>
                               <p>{formatDate(order.created_at)}</p>
                             </div>
-                          </div>
+                          </motion.div>
                         )}
                         {order.payment_status === 'refunded' && (
-                          <div className="timeline-item">
+                          <motion.div 
+                            className="timeline-item"
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.5 }}
+                          >
                             <div className="timeline-icon">💰</div>
                             <div className="timeline-content">
                               <h4>Payment Refunded</h4>
                               <p>{formatDate(order.updated_at)}</p>
                             </div>
-                          </div>
+                          </motion.div>
                         )}
                       </div>
-                    </div>
+                    </motion.div>
                   </div>
                 </div>
               </motion.div>
@@ -635,11 +803,17 @@ const OrderTracking = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 className="tab-content"
+                transition={{ duration: 0.3 }}
               >
                 <div className="timeline-section">
                   <h3>Order Timeline</h3>
                   <div className="order-timeline">
-                    <div className="timeline-item">
+                    <motion.div 
+                      className="timeline-item"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 }}
+                    >
                       <div className="timeline-marker"></div>
                       <div className="timeline-content">
                         <div className="timeline-header">
@@ -648,10 +822,15 @@ const OrderTracking = () => {
                         </div>
                         <p>Your order has been successfully placed and is being processed.</p>
                       </div>
-                    </div>
+                    </motion.div>
 
                     {order.status !== 'pending' && (
-                      <div className="timeline-item">
+                      <motion.div 
+                        className="timeline-item"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2 }}
+                      >
                         <div className="timeline-marker"></div>
                         <div className="timeline-content">
                           <div className="timeline-header">
@@ -660,11 +839,16 @@ const OrderTracking = () => {
                           </div>
                           <p>Your order has been confirmed and payment has been processed.</p>
                         </div>
-                      </div>
+                      </motion.div>
                     )}
 
                     {(order.status === 'processing' || order.status === 'shipped' || order.status === 'delivered') && (
-                      <div className="timeline-item">
+                      <motion.div 
+                        className="timeline-item"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 }}
+                      >
                         <div className="timeline-marker"></div>
                         <div className="timeline-content">
                           <div className="timeline-header">
@@ -673,11 +857,16 @@ const OrderTracking = () => {
                           </div>
                           <p>Your order is being prepared for shipment.</p>
                         </div>
-                      </div>
+                      </motion.div>
                     )}
 
                     {(order.status === 'shipped' || order.status === 'delivered') && (
-                      <div className="timeline-item">
+                      <motion.div 
+                        className="timeline-item"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.4 }}
+                      >
                         <div className="timeline-marker"></div>
                         <div className="timeline-content">
                           <div className="timeline-header">
@@ -689,11 +878,16 @@ const OrderTracking = () => {
                             <p className="tracking-info">Tracking Number: {order.tracking_number}</p>
                           )}
                         </div>
-                      </div>
+                      </motion.div>
                     )}
 
                     {order.status === 'delivered' && (
-                      <div className="timeline-item">
+                      <motion.div 
+                        className="timeline-item"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.5 }}
+                      >
                         <div className="timeline-marker completed"></div>
                         <div className="timeline-content">
                           <div className="timeline-header">
@@ -702,11 +896,16 @@ const OrderTracking = () => {
                           </div>
                           <p>Your order has been successfully delivered. Thank you for shopping with us!</p>
                         </div>
-                      </div>
+                      </motion.div>
                     )}
 
                     {order.status === 'cancelled' && (
-                      <div className="timeline-item cancelled">
+                      <motion.div 
+                        className="timeline-item cancelled"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2 }}
+                      >
                         <div className="timeline-marker"></div>
                         <div className="timeline-content">
                           <div className="timeline-header">
@@ -716,11 +915,16 @@ const OrderTracking = () => {
                           <p>Your order has been cancelled.</p>
                           {order.notes && <p className="cancellation-notes">Reason: {order.notes}</p>}
                         </div>
-                      </div>
+                      </motion.div>
                     )}
 
                     {order.status === 'refunded' && (
-                      <div className="timeline-item">
+                      <motion.div 
+                        className="timeline-item"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.5 }}
+                      >
                         <div className="timeline-marker completed"></div>
                         <div className="timeline-content">
                           <div className="timeline-header">
@@ -729,7 +933,7 @@ const OrderTracking = () => {
                           </div>
                           <p>Your order has been refunded. The amount will be credited to your original payment method.</p>
                         </div>
-                      </div>
+                      </motion.div>
                     )}
                   </div>
                 </div>
@@ -739,26 +943,50 @@ const OrderTracking = () => {
         </div>
       </div>
 
-      <div className="order-actions">
+      <motion.div 
+        className="order-actions"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.8 }}
+      >
         <div className="container">
           <div className="action-buttons">
-            <button onClick={() => navigate('/productList')} className="continue-shopping-btn">
+            <motion.button 
+              onClick={() => navigate('/productList')} 
+              className="continue-shopping-btn"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
               Continue Shopping
-            </button>
-            <button onClick={() => navigate('/profile')} className="back-to-orders-btn">
+            </motion.button>
+            <motion.button 
+              onClick={() => navigate('/profile')} 
+              className="back-to-orders-btn"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
               Back to My Orders
-            </button>
+            </motion.button>
             {order.status === 'delivered' && (
-              <button className="return-order-btn">
+              <motion.button 
+                className="return-order-btn"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
                 Request Return
-              </button>
+              </motion.button>
             )}
-            <button onClick={() => window.print()} className="print-order-btn">
+            <motion.button 
+              onClick={() => window.print()} 
+              className="print-order-btn"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
               Print Order
-            </button>
+            </motion.button>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };
