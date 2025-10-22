@@ -367,8 +367,8 @@ const Checkout = () => {
             </div>
 
             <div className="confirmation-actions">
-              <button className="continue-shopping">Continue Shopping</button>
-              <button className="track-order">Track Your Order</button>
+              <button className="continue-shopping" onClick={() => navigate('/productList')}>Continue Shopping</button>
+              <button className="track-order" onClick={() => navigate(`/orderTracking/${orderData.id}`)}>Track Your Order</button>
             </div>
           </motion.div>
         </div>

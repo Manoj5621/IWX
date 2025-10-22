@@ -62,7 +62,11 @@ class OrderService:
                 **item.dict(),
                 "product": product,
                 "price": price,
-                "subtotal": item_subtotal
+                "subtotal": item_subtotal,
+                "name": product.name,
+                "image": product.images[0] if product.images else None,
+                "sku": product.sku,
+                "brand": product.brand
             })
 
         # Calculate totals

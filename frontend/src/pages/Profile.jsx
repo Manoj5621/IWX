@@ -871,7 +871,7 @@ const Profile = () => {
                             </div>
                             <div className="order-actions">
                               <button className="action-btn">View Details</button>
-                              <button className="action-btn">Track Order</button>
+                              <button className="action-btn" onClick={() => window.location.href = `/orderTracking/${order.id}`}>Track Order</button>
                               <button className="action-btn">Reorder</button>
                             </div>
                           </div>

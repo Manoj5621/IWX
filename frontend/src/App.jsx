@@ -15,6 +15,7 @@ import ReturnRefund from './pages/ReturnRefund'
 import Offers from './pages/Offers'
 import ModelViewer from './pages/ModelViewer'
 import Status from './pages/Status'
+import OrderTracking from './pages/OrderTracking'
 import Dashboard from './pages/admin/Dashboard'
 import ErrorPage from './pages/ErrorPage'
 import ProtectedRoute from './routes/ProtectedRoute'
@@ -141,6 +142,7 @@ function AppContent() {
       <Route path='/returnRefund' element={<ReturnRefund />} />
       <Route path='/offers' element={<Offers />} />
       <Route path='/modelViewer' element={<ModelViewer />} />
+      <Route path='/orderTracking/:orderId' element={<ProtectedRoute><OrderTracking /></ProtectedRoute>} />
       <Route path='/status' element={<Status />} />
       <Route path='/error/404' element={<ErrorPage type="404" />} />
       <Route path='/error/500' element={<ErrorPage type="500" />} />
