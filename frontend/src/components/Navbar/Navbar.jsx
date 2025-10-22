@@ -11,6 +11,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const mobileMenuRef = useRef(null);
   const { isAuthenticated } = useSelector((state) => state.auth);
+  const { itemCount } = useSelector((state) => state.cart);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -121,7 +122,7 @@ const Navbar = () => {
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
               <path d="M0 0H3.27L5.09 10.91H15.09L17 4H4.45L4.18 2H17V4H19L17.64 11.19C17.44 12.09 16.64 12.73 15.73 12.73H5.45C4.54 12.73 3.74 12.09 3.54 11.19L1.36 1.09L0 0ZM5.45 14C4.45 14 3.64 14.81 3.64 15.81C3.64 16.81 4.45 17.62 5.45 17.62C6.45 17.62 7.26 16.81 7.26 15.81C7.26 14.81 6.45 14 5.45 14ZM14.45 14C13.45 14 12.64 14.81 12.64 15.81C12.64 16.81 13.45 17.62 14.45 17.62C15.45 17.62 16.26 16.81 16.26 15.81C16.26 14.81 15.45 14 14.45 14Z" fill="black"/>
             </svg>
-            <span className="cart-count">3</span>
+            {itemCount > 0 && <span className="cart-count">{itemCount}</span>}
           </button>
         </div>
       </header>
@@ -196,7 +197,7 @@ const Navbar = () => {
                 <path d="M0 0H3.27L5.09 10.91H15.09L17 4H4.45L4.18 2H17V4H19L17.64 11.19C17.44 12.09 16.64 12.73 15.73 12.73H5.45C4.54 12.73 3.74 12.09 3.54 11.19L1.36 1.09L0 0ZM5.45 14C4.45 14 3.64 14.81 3.64 15.81C3.64 16.81 4.45 17.62 5.45 17.62C6.45 17.62 7.26 16.81 7.26 15.81C7.26 14.81 6.45 14 5.45 14ZM14.45 14C13.45 14 12.64 14.81 12.64 15.81C12.64 16.81 13.45 17.62 14.45 17.62C15.45 17.62 16.26 16.81 16.26 15.81C16.26 14.81 15.45 14 14.45 14Z" fill="black"/>
               </svg>
               Cart
-              <span className="cart-count">3</span>
+              {itemCount > 0 && <span className="cart-count">{itemCount}</span>}
             </button>
           </div>
         </nav>

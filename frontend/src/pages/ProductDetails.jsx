@@ -28,6 +28,7 @@ const ProductDetail = () => {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isInCart, setIsInCart] = useState(false);
 
 
   const relatedProducts = [
@@ -151,7 +152,7 @@ const ProductDetail = () => {
     fetchProduct();
   }, [id, navigate]);
 
-  // Check wishlist status when product loads
+  // Check wishlist and cart status when product loads
   useEffect(() => {
     const checkWishlistStatus = async () => {
       if (user && product && product.id) {
@@ -164,7 +165,24 @@ const ProductDetail = () => {
       }
     };
 
+    const checkCartStatus = async () => {
+      if (user && product && product.id) {
+        try {
+          const cartResponse = await cartAPI.getCart();
+          const itemInCart = cartResponse.items.some(item =>
+            item.product_id === product.id &&
+            item.size === selectedSize &&
+            item.color === selectedColor
+          );
+          setIsInCart(itemInCart);
+        } catch (error) {
+          console.error('Failed to check cart status:', error);
+        }
+      }
+    };
+
     checkWishlistStatus();
+    checkCartStatus();
   }, [user, product, selectedSize, selectedColor]);
 
   const handleAddToCart = async () => {
@@ -181,6 +199,7 @@ const ProductDetail = () => {
         size: selectedSize,
         color: selectedColor
       })).unwrap();
+      setIsInCart(true);
       setShowNotification(true);
     } catch (error) {
       console.error('Failed to add to cart:', error);
@@ -188,6 +207,10 @@ const ProductDetail = () => {
       setShowNotification(true);
       // You could set an error state here
     }
+  };
+
+  const handleGoToCart = () => {
+    navigate('/cart');
   };
 
   const handleWishlist = async () => {
@@ -492,11 +515,14 @@ const ProductDetail = () => {
 
               <div className="action-buttons">
                 <button
-                  className="add-to-cart-btn"
-                  onClick={handleAddToCart}
+                  className={isInCart ? "go-to-cart-btn" : "add-to-cart-btn"}
+                  onClick={isInCart ? handleGoToCart : handleAddToCart}
                   disabled={!product.inventory_quantity || product.inventory_quantity <= 0}
                 >
-                  {product.inventory_quantity && product.inventory_quantity > 0 ? 'Add to Bag' : 'Out of Stock'}
+                  {product.inventory_quantity && product.inventory_quantity > 0
+                    ? (isInCart ? 'Go to Bag' : 'Add to Bag')
+                    : 'Out of Stock'
+                  }
                 </button>
                 <button className="buy-now-btn">
                   Buy Now

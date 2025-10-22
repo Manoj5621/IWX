@@ -963,7 +963,7 @@ const handleSettingChange = (settingKey) => {
             <span></span>
             <span></span>
           </button>
-          <h1>IWX Admin Dashboard</h1>
+          <h1 onClick={() => window.location.href = '/'} style={{cursor: 'pointer'}}>IWX Admin Dashboard</h1>
         </div>
         <div className="header-right">
           <div className="admin-search">
