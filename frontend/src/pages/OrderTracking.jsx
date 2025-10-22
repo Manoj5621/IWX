@@ -1,62 +1,71 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import Navbar from '../components/Navbar/Navbar';
 import { orderAPI } from '../api/orderAPI';
 import { productAPI } from '../api/productAPI';
+import { authAPI } from '../api/authAPI';
+import { updateUser } from '../redux/slices/authSlice';
 import './OrderTracking.css';
 
 const OrderTracking = () => {
-  const { orderId } = useParams();
-  const navigate = useNavigate();
-  const { user } = useSelector(state => state.auth);
-  const [order, setOrder] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [productImages, setProductImages] = useState({});
+   const { orderId } = useParams();
+   const navigate = useNavigate();
+   const { user } = useSelector(state => state.auth);
+   const dispatch = useDispatch();
+   const [order, setOrder] = useState(null);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState(null);
+   const [activeTab, setActiveTab] = useState('overview');
+   const [productImages, setProductImages] = useState({});
 
   useEffect(() => {
-    const fetchOrder = async () => {
-      if (!orderId) {
-        setError('Order ID is required');
-        setLoading(false);
-        return;
-      }
+     const fetchOrder = async () => {
+       if (!orderId) {
+         setError('Order ID is required');
+         setLoading(false);
+         return;
+       }
 
-      try {
-        const orderData = await orderAPI.getOrderById(orderId);
-        setOrder(orderData);
+       try {
+         const orderData = await orderAPI.getOrderById(orderId);
+         setOrder(orderData);
 
-        // Fetch product images for order items
-        if (orderData.items && orderData.items.length > 0) {
-          const images = {};
-          for (const item of orderData.items) {
-            const productId = item.product_id || item.id;
-            if (productId && !images[productId]) {
-              try {
-                const productData = await productAPI.getProduct(productId);
-                if (productData.images && productData.images.length > 0) {
-                  images[productId] = productData.images[0];
-                }
-              } catch (err) {
-                console.warn(`Failed to fetch image for product ${productId}:`, err);
-              }
-            }
-          }
-          setProductImages(images);
-        }
-      } catch (err) {
-        console.error('Error fetching order:', err);
-        setError('Failed to load order details');
-      } finally {
-        setLoading(false);
-      }
-    };
+         // Set active tab from user preferences for this order
+         const orderTabKey = `last_active_tab_order_${orderId}`;
+         if (user?.preferences?.[orderTabKey]) {
+           setActiveTab(user.preferences[orderTabKey]);
+         }
 
-    fetchOrder();
-  }, [orderId]);
+         // Fetch product images for order items
+         if (orderData.items && orderData.items.length > 0) {
+           const images = {};
+           for (const item of orderData.items) {
+             const productId = item.product_id || item.id;
+             if (productId && !images[productId]) {
+               try {
+                 const productData = await productAPI.getProduct(productId);
+                 if (productData.images && productData.images.length > 0) {
+                   images[productId] = productData.images[0];
+                 }
+               } catch (err) {
+                 console.warn(`Failed to fetch image for product ${productId}:`, err);
+               }
+             }
+           }
+           setProductImages(images);
+         }
+       } catch (err) {
+         console.error('Error fetching order:', err);
+         setError('Failed to load order details');
+       } finally {
+         setLoading(false);
+       }
+     };
+
+     fetchOrder();
+   }, [orderId, user]);
 
   const getStatusColor = (status) => {
     const colors = {
@@ -113,6 +122,24 @@ const OrderTracking = () => {
       style: 'currency',
       currency: 'USD'
     }).format(amount);
+  };
+
+  const handleTabChange = async (tabId) => {
+    setActiveTab(tabId);
+
+    // Save the active tab to user preferences for this specific order
+    const orderTabKey = `last_active_tab_order_${orderId}`;
+    const newPreferences = {
+      ...user.preferences,
+      [orderTabKey]: tabId
+    };
+
+    try {
+      const updatedUser = await authAPI.updateCurrentUser({ preferences: newPreferences });
+      dispatch(updateUser(updatedUser));
+    } catch (err) {
+      console.error('Error updating order tracking tab preference:', err);
+    }
   };
 
   if (loading) {
@@ -191,31 +218,31 @@ const OrderTracking = () => {
           <div className="tracking-tabs">
             <button
               className={`tab-button ${activeTab === 'overview' ? 'active' : ''}`}
-              onClick={() => setActiveTab('overview')}
+              onClick={() => handleTabChange('overview')}
             >
               Overview
             </button>
             <button
               className={`tab-button ${activeTab === 'items' ? 'active' : ''}`}
-              onClick={() => setActiveTab('items')}
+              onClick={() => handleTabChange('items')}
             >
               Order Items
             </button>
             <button
               className={`tab-button ${activeTab === 'shipping' ? 'active' : ''}`}
-              onClick={() => setActiveTab('shipping')}
+              onClick={() => handleTabChange('shipping')}
             >
               Shipping & Delivery
             </button>
             <button
               className={`tab-button ${activeTab === 'payment' ? 'active' : ''}`}
-              onClick={() => setActiveTab('payment')}
+              onClick={() => handleTabChange('payment')}
             >
               Payment Details
             </button>
             <button
               className={`tab-button ${activeTab === 'timeline' ? 'active' : ''}`}
-              onClick={() => setActiveTab('timeline')}
+              onClick={() => handleTabChange('timeline')}
             >
               Order Timeline
             </button>

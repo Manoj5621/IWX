@@ -5,11 +5,13 @@ import { adminAPI } from '../../api/adminAPI';
 import websocketService from '../../services/websocket';
 import './Dashboard.css';
 import { ChangePassword } from '../../components/Profile/SecurityComponents'; // Adjust path as needed
-import { useDispatch } from 'react-redux';
-import { logout } from '../../redux/slices/authSlice';
+import { useDispatch, useSelector } from 'react-redux';
+import { logout, updateUser } from '../../redux/slices/authSlice';
+import { authAPI } from '../../api/authAPI';
 import AddProductForm from '../../components/AddProductForm';
 
 const AdminDashboard = () => {
+  const { user } = useSelector(state => state.auth);
   const [activeSection, setActiveSection] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
@@ -55,7 +57,24 @@ const AdminDashboard = () => {
   const [loadingSecurity, setLoadingSecurity] = useState(false);
 
   const handleLogout = () => {
-  dispatch(logout());
+   dispatch(logout());
+   };
+
+  const handleSectionChange = async (sectionId) => {
+    setActiveSection(sectionId);
+
+    // Save the active section to user preferences
+    const newPreferences = {
+      ...user.preferences,
+      last_active_section_admin: sectionId
+    };
+
+    try {
+      const updatedUser = await authAPI.updateCurrentUser({ preferences: newPreferences });
+      dispatch(updateUser(updatedUser));
+    } catch (err) {
+      console.error('Error updating admin active section preference:', err);
+    }
   };
 
   const [editingUser, setEditingUser] = useState(null);
@@ -161,6 +180,11 @@ const handleSettingChange = (settingKey) => {
 
   // Load dashboard data and set up real-time updates
   useEffect(() => {
+    // Set active section from user preferences
+    if (user?.preferences?.last_active_section_admin) {
+      setActiveSection(user.preferences.last_active_section_admin);
+    }
+
     loadDashboardData();
     loadUsersData();
     loadCustomersData();
@@ -175,7 +199,7 @@ const handleSettingChange = (settingKey) => {
     loadTopProductsData();
     loadRecentOrdersData();
     loadRevenueTrendData();
-  }, []); // Load data only once on mount
+  }, [user]); // Load data only once on mount
 
   // Load products data when section changes to products
   useEffect(() => {
@@ -1007,103 +1031,103 @@ const handleSettingChange = (settingKey) => {
         <nav className="desktop-nav">
           <button
             className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveSection('dashboard')}
+            onClick={() => handleSectionChange('dashboard')}
           >
             📊 Dashboard
           </button>
           <button
             className={`nav-item ${activeSection === 'products' ? 'active' : ''}`}
-            onClick={() => setActiveSection('products')}
+            onClick={() => handleSectionChange('products')}
           >
             🛍️ Products
           </button>
           <button
             className={`nav-item ${activeSection === 'orders' ? 'active' : ''}`}
-            onClick={() => setActiveSection('orders')}
+            onClick={() => handleSectionChange('orders')}
           >
             📦 Orders
           </button>
           <button
             className={`nav-item ${activeSection === 'customers' ? 'active' : ''}`}
-            onClick={() => setActiveSection('customers')}
+            onClick={() => handleSectionChange('customers')}
           >
             👥 Customers
           </button>
           <button
             className={`nav-item ${activeSection === 'analytics' ? 'active' : ''}`}
-            onClick={() => setActiveSection('analytics')}
+            onClick={() => handleSectionChange('analytics')}
           >
             📈 Analytics
           </button>
           <button
             className={`nav-item ${activeSection === 'marketing' ? 'active' : ''}`}
-            onClick={() => setActiveSection('marketing')}
+            onClick={() => handleSectionChange('marketing')}
           >
             🎯 Marketing
           </button>
           <button
             className={`nav-item ${activeSection === 'inventory' ? 'active' : ''}`}
-            onClick={() => setActiveSection('inventory')}
+            onClick={() => handleSectionChange('inventory')}
           >
             📋 Inventory
           </button>
           <button
             className={`nav-item ${activeSection === 'users' ? 'active' : ''}`}
-            onClick={() => setActiveSection('users')}
+            onClick={() => handleSectionChange('users')}
           >
             👥 User Management
           </button>
           <button
             className={`nav-item ${activeSection === 'finance' ? 'active' : ''}`}
-            onClick={() => setActiveSection('finance')}
+            onClick={() => handleSectionChange('finance')}
           >
             💰 Finance
           </button>
           <button
             className={`nav-item ${activeSection === 'reports' ? 'active' : ''}`}
-            onClick={() => setActiveSection('reports')}
+            onClick={() => handleSectionChange('reports')}
           >
             📋 Reports
           </button>
           <button
             className={`nav-item ${activeSection === 'notifications' ? 'active' : ''}`}
-            onClick={() => setActiveSection('notifications')}
+            onClick={() => handleSectionChange('notifications')}
           >
             🔔 Notifications
           </button>
           <button
             className={`nav-item ${activeSection === 'security' ? 'active' : ''}`}
-            onClick={() => setActiveSection('security')}
+            onClick={() => handleSectionChange('security')}
           >
             🔒 Security
           </button>
           <button
             className={`nav-item ${activeSection === 'integrations' ? 'active' : ''}`}
-            onClick={() => setActiveSection('integrations')}
+            onClick={() => handleSectionChange('integrations')}
           >
             🔗 Integrations
           </button>
           <button
             className={`nav-item ${activeSection === 'backups' ? 'active' : ''}`}
-            onClick={() => setActiveSection('backups')}
+            onClick={() => handleSectionChange('backups')}
           >
             💾 Backups
           </button>
           <button
             className={`nav-item ${activeSection === 'logs' ? 'active' : ''}`}
-            onClick={() => setActiveSection('logs')}
+            onClick={() => handleSectionChange('logs')}
           >
             📝 Logs
           </button>
           <button
             className={`nav-item ${activeSection === 'help' ? 'active' : ''}`}
-            onClick={() => setActiveSection('help')}
+            onClick={() => handleSectionChange('help')}
           >
             ❓ Help & Support
           </button>
           <button
             className={`nav-item ${activeSection === 'settings' ? 'active' : ''}`}
-            onClick={() => setActiveSection('settings')}
+            onClick={() => handleSectionChange('settings')}
           >
             ⚙️ Settings
           </button>
@@ -1121,7 +1145,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'dashboard' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('dashboard');
+              handleSectionChange('dashboard');
               setSidebarOpen(false);
             }}
           >
@@ -1130,7 +1154,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'products' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('products');
+              handleSectionChange('products');
               setSidebarOpen(false);
             }}
           >
@@ -1139,7 +1163,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'orders' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('orders');
+              handleSectionChange('orders');
               setSidebarOpen(false);
             }}
           >
@@ -1148,7 +1172,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'customers' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('customers');
+              handleSectionChange('customers');
               setSidebarOpen(false);
             }}
           >
@@ -1157,7 +1181,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'analytics' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('analytics');
+              handleSectionChange('analytics');
               setSidebarOpen(false);
             }}
           >
@@ -1166,7 +1190,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'marketing' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('marketing');
+              handleSectionChange('marketing');
               setSidebarOpen(false);
             }}
           >
@@ -1175,7 +1199,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'inventory' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('inventory');
+              handleSectionChange('inventory');
               setSidebarOpen(false);
             }}
           >
@@ -1184,7 +1208,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'users' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('users');
+              handleSectionChange('users');
               setSidebarOpen(false);
             }}
           >
@@ -1193,7 +1217,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'finance' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('finance');
+              handleSectionChange('finance');
               setSidebarOpen(false);
             }}
           >
@@ -1202,7 +1226,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'reports' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('reports');
+              handleSectionChange('reports');
               setSidebarOpen(false);
             }}
           >
@@ -1211,7 +1235,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'notifications' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('notifications');
+              handleSectionChange('notifications');
               setSidebarOpen(false);
             }}
           >
@@ -1220,7 +1244,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'security' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('security');
+              handleSectionChange('security');
               setSidebarOpen(false);
             }}
           >
@@ -1229,7 +1253,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'integrations' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('integrations');
+              handleSectionChange('integrations');
               setSidebarOpen(false);
             }}
           >
@@ -1238,7 +1262,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'backups' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('backups');
+              handleSectionChange('backups');
               setSidebarOpen(false);
             }}
           >
@@ -1247,7 +1271,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'logs' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('logs');
+              handleSectionChange('logs');
               setSidebarOpen(false);
             }}
           >
@@ -1256,7 +1280,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'help' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('help');
+              handleSectionChange('help');
               setSidebarOpen(false);
             }}
           >
@@ -1265,7 +1289,7 @@ const handleSettingChange = (settingKey) => {
           <button
             className={`nav-item ${activeSection === 'settings' ? 'active' : ''}`}
             onClick={() => {
-              setActiveSection('settings');
+              handleSectionChange('settings');
               setSidebarOpen(false);
             }}
           >

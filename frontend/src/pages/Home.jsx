@@ -1,16 +1,18 @@
 // Home.jsx
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar/Navbar';
 import { productAPI } from '../api/productAPI';
 import './Home.css';
 
 const Home = () => {
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [featuredProducts, setFeaturedProducts] = useState([]);
-  const [trendingProducts, setTrendingProducts] = useState([]);
-  const [newArrivals, setNewArrivals] = useState([]);
-  const [loading, setLoading] = useState(true);
+   const navigate = useNavigate();
+   const [currentSlide, setCurrentSlide] = useState(0);
+   const [featuredProducts, setFeaturedProducts] = useState([]);
+   const [trendingProducts, setTrendingProducts] = useState([]);
+   const [newArrivals, setNewArrivals] = useState([]);
+   const [loading, setLoading] = useState(true);
 
   const slides = [
     {
@@ -211,7 +213,12 @@ const Home = () => {
             >
               <h2>{slide.title}</h2>
               <p>{slide.subtitle}</p>
-              <button className="cta-button">{slide.cta}</button>
+              <button
+                className="cta-button"
+                onClick={() => navigate('/productList')}
+              >
+                {slide.cta}
+              </button>
             </motion.div>
           </div>
         ))}

@@ -115,6 +115,10 @@ const Profile = () => {
 
       if (user.preferences) {
         setPreferences(user.preferences);
+        // Set active tab from saved preference
+        setActiveTab(user.preferences.last_active_section || 'profile');
+      } else {
+        setActiveTab('profile');
       }
 
       // Load real data for all sections with error handling
@@ -266,6 +270,26 @@ const Profile = () => {
       dispatch(updateUser(updatedUser));
     } catch (err) {
       console.error('Error updating preferences:', err);
+      setPreferences(preferences);
+    }
+  };
+
+  const handleTabChange = async (tabId) => {
+    setActiveTab(tabId);
+
+    // Save the active tab to user preferences
+    const newPreferences = {
+      ...preferences,
+      last_active_section: tabId
+    };
+    setPreferences(newPreferences);
+
+    try {
+      const updatedUser = await authAPI.updateCurrentUser({ preferences: newPreferences });
+      dispatch(updateUser(updatedUser));
+    } catch (err) {
+      console.error('Error updating active tab preference:', err);
+      // Revert on error
       setPreferences(preferences);
     }
   };
@@ -543,7 +567,7 @@ const Profile = () => {
               <button
                 key={item.id}
                 className={activeTab === item.id ? 'active' : ''}
-                onClick={() => item.isAdmin ? window.location.href = '/adminDashboard' : setActiveTab(item.id)}
+                onClick={() => item.isAdmin ? window.location.href = '/adminDashboard' : handleTabChange(item.id)}
               >
                 <span>{item.icon}</span>
                 {item.label}
