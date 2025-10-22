@@ -168,10 +168,7 @@ const Cart = () => {
   const adjustedTotal = adjustedSubtotal + tax_amount + shipping_cost + giftWrapFee;
 
   const checkout = () => {
-    setAlert({
-      type: 'info',
-      message: 'Proceeding to checkout! This would redirect to payment in a real application.'
-    });
+    navigate('/checkout');
   };
 
   const addSuggestedItem = async (item) => {

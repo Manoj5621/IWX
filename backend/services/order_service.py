@@ -46,8 +46,8 @@ class OrderService:
             if not product_doc:
                 raise ValueError(f"Product {item.product_id} not found")
 
-            product = ProductInDB(**product_doc)
             product_doc["id"] = product_doc["_id"]
+            product = ProductInDB(**product_doc)
 
             # Check inventory
             if product.inventory_quantity < item.quantity:

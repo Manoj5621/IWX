@@ -1,43 +1,20 @@
 // Checkout.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar/Navbar';
+import AddressForm from '../components/Profile/AddressForm';
+import PaymentForm from '../components/Profile/PaymentForm';
+import { addressAPI } from '../api/addressAPI';
+import { paymentAPI } from '../api/paymentAPI';
+import { orderAPI } from '../api/orderAPI';
 import './Checkout.css';
 
 const Checkout = () => {
-  const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      name: 'Premium Leather Jacket',
-      price: 199.99,
-      originalPrice: 249.99,
-      image: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=870&q=80',
-      size: 'M',
-      color: 'Black',
-      quantity: 1,
-      inStock: true
-    },
-    {
-      id: 2,
-      name: 'Designer Silk Dress',
-      price: 149.99,
-      image: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80',
-      size: 'S',
-      color: 'Navy',
-      quantity: 2,
-      inStock: true
-    },
-    {
-      id: 3,
-      name: 'Limited Edition Sneakers',
-      price: 129.99,
-      image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1160&q=80',
-      size: 'US 8',
-      color: 'White',
-      quantity: 1,
-      inStock: true
-    }
-  ]);
+  const navigate = useNavigate();
+  const { items: cartItems, subtotal, tax_amount, shipping_cost, total_amount } = useSelector(state => state.cart);
+  const { user } = useSelector(state => state.auth);
 
   const [customerInfo, setCustomerInfo] = useState({
     email: '',
@@ -61,10 +38,34 @@ const Checkout = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [activeAccordion, setActiveAccordion] = useState('contact');
+  const [orderData, setOrderData] = useState(null);
 
-  // Calculate order totals
-  const subtotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const shippingCost = shippingMethod === 'express' ? 9.99 : 4.99;
+  // Address management states
+  const [addresses, setAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [isAddressFormOpen, setIsAddressFormOpen] = useState(false);
+  const [editingAddress, setEditingAddress] = useState(null);
+  const [loadingAddresses, setLoadingAddresses] = useState(false);
+
+  // Payment management states
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [selectedPaymentId, setSelectedPaymentId] = useState(null);
+  const [isPaymentFormOpen, setIsPaymentFormOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState(null);
+  const [loadingPayments, setLoadingPayments] = useState(false);
+  const [showPaymentOptions, setShowPaymentOptions] = useState(false);
+
+  // Friend ordering option
+  const [isOrderingForFriend, setIsOrderingForFriend] = useState(false);
+  const [friendDetails, setFriendDetails] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    email: ''
+  });
+
+  // Calculate order totals using Redux data
+  const shippingCost = shippingMethod === 'express' ? 9.99 : (subtotal >= 100 ? 0 : 4.99);
   const tax = subtotal * 0.08; // 8% tax
   const total = subtotal + shippingCost + tax;
 
@@ -76,19 +77,158 @@ const Checkout = () => {
     }));
   };
 
-  const updateQuantity = (id, newQuantity) => {
-    if (newQuantity < 1) return;
-    
-    setCartItems(prev => 
-      prev.map(item => 
-        item.id === id ? { ...item, quantity: newQuantity } : item
-      )
-    );
+  const handleFriendInputChange = (e) => {
+    const { name, value } = e.target;
+    setFriendDetails(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  const removeItem = (id) => {
-    setCartItems(prev => prev.filter(item => item.id !== id));
+  const handleAddressSelect = (addressId) => {
+    setSelectedAddressId(addressId);
   };
+
+  const handleAddNewAddress = () => {
+    setEditingAddress(null);
+    setIsAddressFormOpen(true);
+  };
+
+  const handleEditAddress = (address) => {
+    setEditingAddress(address);
+    setIsAddressFormOpen(true);
+  };
+
+  const handleSaveAddress = async (addressData) => {
+    try {
+      if (editingAddress) {
+        await addressAPI.updateAddress(editingAddress.id, addressData);
+      } else {
+        await addressAPI.createAddress(addressData);
+      }
+      // Refresh addresses
+      const response = await addressAPI.getAddresses();
+      const updatedAddresses = response.addresses || [];
+      setAddresses(updatedAddresses);
+      // Set as selected if it's new or was default
+      if (!editingAddress || addressData.is_default) {
+        const newAddress = updatedAddresses.find(addr =>
+          addr.name === addressData.name &&
+          addr.first_name === addressData.first_name &&
+          addr.last_name === addressData.last_name
+        );
+        if (newAddress) {
+          setSelectedAddressId(newAddress.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving address:', error);
+      throw error;
+    }
+  };
+
+  const handlePaymentSelect = (paymentId) => {
+    setSelectedPaymentId(paymentId);
+    setPaymentMethod('creditCard'); // Set to credit card when selecting saved payment
+    setShowPaymentOptions(false); // Hide payment options when selecting saved payment
+  };
+
+  const handleAddNewPayment = () => {
+    setSelectedPaymentId(null); // Deselect any saved payment
+    setShowPaymentOptions(true);
+  };
+
+  const handleSelectPaymentType = (paymentType) => {
+    if (paymentType === 'creditCard') {
+      setEditingPayment(null);
+      setIsPaymentFormOpen(true);
+    } else {
+      setPaymentMethod(paymentType);
+      setSelectedPaymentId(null); // Ensure no saved payment is selected
+    }
+    setShowPaymentOptions(false);
+  };
+
+  const handleEditPayment = (payment) => {
+    setEditingPayment(payment);
+    setIsPaymentFormOpen(true);
+  };
+
+  const handleSavePayment = async (paymentData) => {
+    try {
+      if (editingPayment) {
+        await paymentAPI.updatePaymentMethod(editingPayment.id, paymentData);
+      } else {
+        await paymentAPI.createPaymentMethod(paymentData);
+      }
+      // Refresh payment methods
+      const response = await paymentAPI.getPaymentMethods();
+      const updatedPayments = response.payments || [];
+      setPaymentMethods(updatedPayments);
+      // Set as selected if it's new or was default
+      if (!editingPayment || paymentData.is_default) {
+        const newPayment = updatedPayments.find(payment =>
+          payment.credit_card?.card_number === paymentData.credit_card?.card_number ||
+          payment.credit_card?.last_four === paymentData.credit_card?.last_four
+        );
+        if (newPayment) {
+          setSelectedPaymentId(newPayment.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving payment method:', error);
+      throw error;
+    }
+  };
+
+  // Redirect to cart if no items
+  useEffect(() => {
+    if (cartItems.length === 0) {
+      navigate('/cart');
+    }
+  }, [cartItems, navigate]);
+
+  // Fetch addresses and payments on component mount
+  useEffect(() => {
+    const fetchData = async () => {
+      if (user) {
+        // Fetch addresses
+        setLoadingAddresses(true);
+        try {
+          const addressResponse = await addressAPI.getAddresses();
+          const userAddresses = addressResponse.addresses || [];
+          setAddresses(userAddresses);
+          // Set default address as selected if available
+          const defaultAddress = userAddresses.find(addr => addr.is_default);
+          if (defaultAddress) {
+            setSelectedAddressId(defaultAddress.id);
+          }
+        } catch (error) {
+          console.error('Error fetching addresses:', error);
+        } finally {
+          setLoadingAddresses(false);
+        }
+
+        // Fetch payment methods
+        setLoadingPayments(true);
+        try {
+          const paymentResponse = await paymentAPI.getPaymentMethods();
+          const userPayments = paymentResponse.payments || [];
+          setPaymentMethods(userPayments);
+          // Set default payment as selected if available
+          const defaultPayment = userPayments.find(payment => payment.is_default);
+          if (defaultPayment) {
+            setSelectedPaymentId(defaultPayment.id);
+          }
+        } catch (error) {
+          console.error('Error fetching payment methods:', error);
+        } finally {
+          setLoadingPayments(false);
+        }
+      }
+    };
+    fetchData();
+  }, [user]);
 
   const applyGiftCard = () => {
     if (giftCardCode.trim() !== '') {
@@ -104,15 +244,65 @@ const Checkout = () => {
     }
   };
 
-  const handleSubmitOrder = (e) => {
+  const handleSubmitOrder = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      // Get selected address details
+      const selectedAddress = addresses.find(addr => addr.id === selectedAddressId);
+
+      // Get selected payment details
+      const selectedPayment = paymentMethods.find(payment => payment.id === selectedPaymentId);
+
+      // Prepare order data
+      const orderPayload = {
+        user_id: user?.id,
+        items: cartItems.map(item => ({
+          product_id: item.product_id || item.id,
+          quantity: item.quantity,
+          price: item.price,
+          size: item.size,
+          color: item.color,
+          subtotal: item.quantity * item.price
+        })),
+        shipping_address: selectedAddress ? {
+          first_name: selectedAddress.first_name,
+          last_name: selectedAddress.last_name,
+          address_line_1: selectedAddress.street_address,
+          address_line_2: "",
+          city: selectedAddress.city,
+          state: selectedAddress.state,
+          postal_code: selectedAddress.postal_code,
+          country: selectedAddress.country,
+          phone: selectedAddress.phone
+        } : null,
+        billing_address: selectedAddress ? {
+          first_name: selectedAddress.first_name,
+          last_name: selectedAddress.last_name,
+          address_line_1: selectedAddress.street_address,
+          address_line_2: "",
+          city: selectedAddress.city,
+          state: selectedAddress.state,
+          postal_code: selectedAddress.postal_code,
+          country: selectedAddress.country,
+          phone: selectedAddress.phone
+        } : null,
+        payment_method: selectedPaymentId ? `payment_${selectedPaymentId}` : paymentMethod,
+        shipping_method: shippingMethod
+      };
+
+      // Create order
+      const createdOrder = await orderAPI.createOrder(orderPayload);
+      setOrderData(createdOrder);
       setOrderComplete(true);
-    }, 2000);
+
+    } catch (error) {
+      console.error('Error creating order:', error);
+      // Handle error (could show error message)
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const toggleAccordion = (section) => {
@@ -131,7 +321,7 @@ const Checkout = () => {
           >
             <div className="confirmation-icon">✓</div>
             <h1>Order Confirmed!</h1>
-            <p>Thank you for your purchase. Your order number is <strong>IWX-{Math.floor(Math.random() * 10000)}</strong></p>
+            <p>Thank you for your purchase. Your order number is <strong>{orderData?.order_number || 'IWX-' + Math.floor(Math.random() * 10000)}</strong></p>
             <p>We've sent a confirmation email to {customerInfo.email}</p>
             
             <div className="order-summary">
@@ -139,29 +329,41 @@ const Checkout = () => {
               <div className="summary-details">
                 <div className="summary-row">
                   <span>Items:</span>
-                  <span>${subtotal.toFixed(2)}</span>
+                  <span>${orderData?.subtotal?.toFixed(2) || subtotal.toFixed(2)}</span>
                 </div>
                 <div className="summary-row">
                   <span>Shipping:</span>
-                  <span>${shippingCost.toFixed(2)}</span>
+                  <span>{orderData?.shipping_cost === 0 ? 'FREE' : `$${orderData?.shipping_cost?.toFixed(2) || shipping_cost.toFixed(2)}`}</span>
                 </div>
                 <div className="summary-row">
                   <span>Tax:</span>
-                  <span>${tax.toFixed(2)}</span>
+                  <span>${orderData?.tax_amount?.toFixed(2) || tax_amount.toFixed(2)}</span>
                 </div>
                 <div className="summary-row total">
                   <span>Total:</span>
-                  <span>${total.toFixed(2)}</span>
+                  <span>${orderData?.total_amount?.toFixed(2) || total_amount.toFixed(2)}</span>
                 </div>
               </div>
             </div>
 
             <div className="shipping-info">
               <h2>Shipping Information</h2>
-              <p>{customerInfo.firstName} {customerInfo.lastName}</p>
-              <p>{customerInfo.address}</p>
-              <p>{customerInfo.city}, {customerInfo.state} {customerInfo.zipCode}</p>
-              <p>{customerInfo.country}</p>
+              {orderData?.shipping_address ? (
+                <>
+                  <p>{orderData.shipping_address.first_name} {orderData.shipping_address.last_name}</p>
+                  <p>{orderData.shipping_address.street_address}</p>
+                  <p>{orderData.shipping_address.city}, {orderData.shipping_address.state} {orderData.shipping_address.postal_code}</p>
+                  <p>{orderData.shipping_address.country}</p>
+                  {orderData.shipping_address.phone && <p>📞 {orderData.shipping_address.phone}</p>}
+                </>
+              ) : (
+                <>
+                  <p>{customerInfo.firstName} {customerInfo.lastName}</p>
+                  <p>{customerInfo.address}</p>
+                  <p>{customerInfo.city}, {customerInfo.state} {customerInfo.zipCode}</p>
+                  <p>{customerInfo.country}</p>
+                </>
+              )}
             </div>
 
             <div className="confirmation-actions">
@@ -195,7 +397,7 @@ const Checkout = () => {
               </div>
               <AnimatePresence>
                 {activeAccordion === 'contact' && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
@@ -220,6 +422,69 @@ const Checkout = () => {
                       />
                       <label htmlFor="emailUpdates">Email me with news and offers</label>
                     </div>
+                    <div className="form-checkbox">
+                      <input
+                        type="checkbox"
+                        id="orderingForFriend"
+                        checked={isOrderingForFriend}
+                        onChange={(e) => setIsOrderingForFriend(e.target.checked)}
+                      />
+                      <label htmlFor="orderingForFriend">I'm ordering for a friend - add their details so delivery boy can contact them</label>
+                    </div>
+                    {isOrderingForFriend && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="friend-details"
+                      >
+                        <h4>Friend's Details</h4>
+                        <div className="form-row">
+                          <div className="form-group">
+                            <label>First Name</label>
+                            <input
+                              type="text"
+                              name="firstName"
+                              value={friendDetails.firstName}
+                              onChange={handleFriendInputChange}
+                              placeholder="Friend's first name"
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label>Last Name</label>
+                            <input
+                              type="text"
+                              name="lastName"
+                              value={friendDetails.lastName}
+                              onChange={handleFriendInputChange}
+                              placeholder="Friend's last name"
+                            />
+                          </div>
+                        </div>
+                        <div className="form-row">
+                          <div className="form-group">
+                            <label>Phone Number</label>
+                            <input
+                              type="tel"
+                              name="phone"
+                              value={friendDetails.phone}
+                              onChange={handleFriendInputChange}
+                              placeholder="Friend's phone number"
+                            />
+                          </div>
+                          <div className="form-group">
+                            <label>Email Address</label>
+                            <input
+                              type="email"
+                              name="email"
+                              value={friendDetails.email}
+                              onChange={handleFriendInputChange}
+                              placeholder="Friend's email"
+                            />
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -233,166 +498,81 @@ const Checkout = () => {
               </div>
               <AnimatePresence>
                 {activeAccordion === 'shipping' && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
                     className="step-content"
                   >
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>First Name</label>
-                        <input
-                          type="text"
-                          name="firstName"
-                          value={customerInfo.firstName}
-                          onChange={handleInputChange}
-                          required
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Last Name</label>
-                        <input
-                          type="text"
-                          name="lastName"
-                          value={customerInfo.lastName}
-                          onChange={handleInputChange}
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="form-group">
-                      <label>Phone Number</label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={customerInfo.phone}
-                        onChange={handleInputChange}
-                        required
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Address</label>
-                      <input
-                        type="text"
-                        name="address"
-                        value={customerInfo.address}
-                        onChange={handleInputChange}
-                        placeholder="Street address"
-                        required
-                      />
-                    </div>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>City</label>
-                        <input
-                          type="text"
-                          name="city"
-                          value={customerInfo.city}
-                          onChange={handleInputChange}
-                          required
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>State</label>
-                        <select
-                          name="state"
-                          value={customerInfo.state}
-                          onChange={handleInputChange}
-                          required
+                    {loadingAddresses ? (
+                      <div className="loading-addresses">Loading addresses...</div>
+                    ) : addresses.length > 0 ? (
+                      <>
+                        <div className="address-selection">
+                          <h4>Select Delivery Address</h4>
+                          <div className="addresses-grid">
+                            {addresses.map(address => (
+                              <div
+                                key={address.id}
+                                className={`address-card ${selectedAddressId === address.id ? 'selected' : ''}`}
+                                onClick={() => handleAddressSelect(address.id)}
+                              >
+                                <div className="address-radio">
+                                  <input
+                                    type="radio"
+                                    name="selectedAddress"
+                                    checked={selectedAddressId === address.id}
+                                    onChange={() => handleAddressSelect(address.id)}
+                                  />
+                                </div>
+                                <div className="address-header">
+                                  <h3>{address.name}</h3>
+                                  {address.is_default && <span className="default-badge">Default</span>}
+                                </div>
+                                <div className="address-details">
+                                  <p>{address.first_name} {address.last_name}</p>
+                                  <p>{address.street_address}</p>
+                                  <p>{address.city}, {address.state} {address.postal_code}</p>
+                                  <p>{address.country}</p>
+                                  {address.phone && <p>📞 {address.phone}</p>}
+                                </div>
+                                <div className="address-actions">
+                                  <button
+                                    className="edit-address-btn"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditAddress(address);
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="add-address-section">
+                          <button
+                            type="button"
+                            className="add-new-address-btn"
+                            onClick={handleAddNewAddress}
+                          >
+                            + Add New Address
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="no-addresses">
+                        <p>No saved addresses found.</p>
+                        <button
+                          type="button"
+                          className="add-new-address-btn"
+                          onClick={handleAddNewAddress}
                         >
-                          <option value="">Select state</option>
-                          <option value="AL">Alabama</option>
-                          <option value="AK">Alaska</option>
-                          <option value="AZ">Arizona</option>
-                          <option value="AR">Arkansas</option>
-                          <option value="CA">California</option>
-                          <option value="CO">Colorado</option>
-                          <option value="CT">Connecticut</option>
-                          <option value="DE">Delaware</option>
-                          <option value="FL">Florida</option>
-                          <option value="GA">Georgia</option>
-                          <option value="HI">Hawaii</option>
-                          <option value="ID">Idaho</option>
-                          <option value="IL">Illinois</option>
-                          <option value="IN">Indiana</option>
-                          <option value="IA">Iowa</option>
-                          <option value="KS">Kansas</option>
-                          <option value="KY">Kentucky</option>
-                          <option value="LA">Louisiana</option>
-                          <option value="ME">Maine</option>
-                          <option value="MD">Maryland</option>
-                          <option value="MA">Massachusetts</option>
-                          <option value="MI">Michigan</option>
-                          <option value="MN">Minnesota</option>
-                          <option value="MS">Mississippi</option>
-                          <option value="MO">Missouri</option>
-                          <option value="MT">Montana</option>
-                          <option value="NE">Nebraska</option>
-                          <option value="NV">Nevada</option>
-                          <option value="NH">New Hampshire</option>
-                          <option value="NJ">New Jersey</option>
-                          <option value="NM">New Mexico</option>
-                          <option value="NY">New York</option>
-                          <option value="NC">North Carolina</option>
-                          <option value="ND">North Dakota</option>
-                          <option value="OH">Ohio</option>
-                          <option value="OK">Okla homa</option>
-                          <option value="OR">Oregon</option>
-                          <option value="PA">Pennsylvania</option>
-                          <option value="RI">Rhode Island</option>
-                          <option value="SC">South Carolina</option>
-                          <option value="SD">South Dakota</option>
-                          <option value="TN">Tennessee</option>
-                          <option value="TX">Texas</option>
-                          <option value="UT">Utah</option>
-                          <option value="VT">Vermont</option>
-                          <option value="VA">Virginia</option>
-                          <option value="WA">Washington</option>
-                          <option value="WV">West Virginia</option>
-                          <option value="WI">Wisconsin</option>
-                          <option value="WY">Wyoming</option>
-                        </select>
+                          + Add New Address
+                        </button>
                       </div>
-                    </div>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>ZIP Code</label>
-                        <input
-                          type="text"
-                          name="zipCode"
-                          value={customerInfo.zipCode}
-                          onChange={handleInputChange}
-                          required
-                        />
-                      </div>
-                      <div className="form-group">
-                        <label>Country</label>
-                        <select
-                          name="country"
-                          value={customerInfo.country}
-                          onChange={handleInputChange}
-                          required
-                        >
-                          <option value="United States">United States</option>
-                          <option value="Canada">Canada</option>
-                          <option value="United Kingdom">United Kingdom</option>
-                          <option value="Australia">Australia</option>
-                          <option value="Germany">Germany</option>
-                          <option value="France">France</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="form-checkbox">
-                      <input
-                        type="checkbox"
-                        id="saveInfo"
-                        name="saveInfo"
-                        checked={customerInfo.saveInfo}
-                        onChange={handleInputChange}
-                      />
-                      <label htmlFor="saveInfo">Save this information for next time</label>
-                    </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -479,84 +659,115 @@ const Checkout = () => {
                     exit={{ opacity: 0, height: 0 }}
                     className="step-content"
                   >
-                    <div className="payment-options">
-                      <label className="payment-option">
-                        <input
-                          type="radio"
-                          name="payment"
-                          value="creditCard"
-                          checked={paymentMethod === 'creditCard'}
-                          onChange={(e) => setPaymentMethod(e.target.value)}
-                        />
-                        <span>Credit Card</span>
-                      </label>
-                      <label className="payment-option">
-                        <input
-                          type="radio"
-                          name="payment"
-                          value="paypal"
-                          checked={paymentMethod === 'paypal'}
-                          onChange={(e) => setPaymentMethod(e.target.value)}
-                        />
-                        <span>PayPal</span>
-                      </label>
-                      <label className="payment-option">
-                        <input
-                          type="radio"
-                          name="payment"
-                          value="applePay"
-                          checked={paymentMethod === 'applePay'}
-                          onChange={(e) => setPaymentMethod(e.target.value)}
-                        />
-                        <span>Apple Pay</span>
-                      </label>
-                    </div>
-
-                    {paymentMethod === 'creditCard' && (
-                      <div className="credit-card-form">
-                        <div className="form-group">
-                          <label>Card Number</label>
-                          <input
-                            type="text"
-                            placeholder="1234 5678 9012 3456"
-                            maxLength="19"
-                          />
-                        </div>
-                        <div className="form-row">
-                          <div className="form-group">
-                            <label>Expiration Date</label>
-                            <input
-                              type="text"
-                              placeholder="MM/YY"
-                              maxLength="5"
-                            />
-                          </div>
-                          <div className="form-group">
-                            <label>Security Code</label>
-                            <input
-                              type="text"
-                              placeholder="CVV"
-                              maxLength="3"
-                            />
+                    {loadingPayments ? (
+                      <div className="loading-payments">Loading payment methods...</div>
+                    ) : paymentMethods.length > 0 ? (
+                      <>
+                        <div className="payment-selection">
+                          <h4>Select Payment Method</h4>
+                          <div className="payment-methods-list">
+                            {paymentMethods.map(payment => (
+                              <div
+                                key={payment.id}
+                                className={`payment-card ${selectedPaymentId === payment.id ? 'selected' : ''}`}
+                                onClick={() => handlePaymentSelect(payment.id)}
+                              >
+                                <div className="payment-radio">
+                                  <input
+                                    type="radio"
+                                    name="selectedPayment"
+                                    checked={selectedPaymentId === payment.id}
+                                    onChange={() => handlePaymentSelect(payment.id)}
+                                  />
+                                </div>
+                                <div className="payment-header">
+                                  <div className="payment-type">
+                                    <div className="card-icon">💳</div>
+                                    <div>
+                                        <h3>{payment.display_name || `${payment.credit_card?.card_brand?.toUpperCase() || 'CARD'} **** **** **** ${payment.credit_card?.last_four || '****'}`}</h3>
+                                        <p>{payment.credit_card?.cardholder_name || 'Card Holder'}</p>
+                                        {payment.credit_card && (
+                                          <p>Expires {payment.credit_card.expiry_month}/{payment.credit_card.expiry_year}</p>
+                                        )}
+                                      </div>
+                                  </div>
+                                  {payment.is_default && <span className="default-badge">Default</span>}
+                                  <div className="payment-actions">
+                                    <button
+                                      className="edit-payment-btn"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditPayment(payment);
+                                      }}
+                                    >
+                                      Edit
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
-                        <div className="form-group">
-                          <label>Name on Card</label>
-                          <input
-                            type="text"
-                            placeholder="Full name"
-                          />
+                        <div className="add-payment-section">
+                          {!showPaymentOptions ? (
+                            <button
+                              type="button"
+                              className="add-new-payment-btn"
+                              onClick={handleAddNewPayment}
+                            >
+                              + Add New Payment Method
+                            </button>
+                          ) : (
+                            <div className="payment-type-selection">
+                              <h4>Choose Payment Type</h4>
+                              <div className="payment-type-buttons">
+                                <button
+                                  type="button"
+                                  className="payment-type-btn"
+                                  onClick={() => handleSelectPaymentType('creditCard')}
+                                >
+                                  💳 Credit/Debit Card
+                                </button>
+                                <button
+                                  type="button"
+                                  className="payment-type-btn"
+                                  onClick={() => handleSelectPaymentType('paypal')}
+                                >
+                                  🅿️ PayPal
+                                </button>
+                                <button
+                                  type="button"
+                                  className="payment-type-btn"
+                                  onClick={() => handleSelectPaymentType('applePay')}
+                                >
+                                  🍎 Apple Pay
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
+                      </>
+                    ) : (
+                      <div className="no-payments">
+                        <p>No saved payment methods found.</p>
+                        <button
+                          type="button"
+                          className="add-new-payment-btn"
+                          onClick={handleAddNewPayment}
+                        >
+                          + Add New Payment Method
+                        </button>
                       </div>
                     )}
 
-                    {paymentMethod === 'paypal' && (
+
+                    {paymentMethod === 'paypal' && !selectedPaymentId && (
                       <div className="paypal-info">
                         <p>You will be redirected to PayPal to complete your payment.</p>
                       </div>
                     )}
 
-                    {paymentMethod === 'applePay' && (
+                    {paymentMethod === 'applePay' && !selectedPaymentId && (
                       <div className="apple-pay-info">
                         <p>Complete your purchase using Apple Pay for a faster checkout experience.</p>
                       </div>
@@ -590,8 +801,8 @@ const Checkout = () => {
             <h2>Order Summary</h2>
             
             <div className="cart-items">
-              {cartItems.map(item => (
-                <div key={item.id} className="cart-item">
+              {orderData?.items ? orderData.items.map(item => (
+                <div key={`${item.product_id}-${item.size}-${item.color}`} className="cart-item">
                   <div className="item-image">
                     <img src={item.image} alt={item.name} />
                     <span className="item-quantity">{item.quantity}</span>
@@ -601,12 +812,18 @@ const Checkout = () => {
                     <p>{item.color} / {item.size}</p>
                     <div className="item-price">${item.price.toFixed(2)}</div>
                   </div>
-                  <button 
-                    className="remove-item"
-                    onClick={() => removeItem(item.id)}
-                  >
-                    ×
-                  </button>
+                </div>
+              )) : cartItems.map(item => (
+                <div key={`${item.product_id}-${item.size}-${item.color}`} className="cart-item">
+                  <div className="item-image">
+                    <img src={item.product?.images?.[0] || item.image} alt={item.product?.name || item.name} />
+                    <span className="item-quantity">{item.quantity}</span>
+                  </div>
+                  <div className="item-details">
+                    <h4>{item.product?.name || item.name}</h4>
+                    <p>{item.color} / {item.size}</p>
+                    <div className="item-price">${item.price.toFixed(2)}</div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -618,11 +835,11 @@ const Checkout = () => {
               </div>
               <div className="summary-row">
                 <span>Shipping</span>
-                <span>${shippingCost.toFixed(2)}</span>
+                <span>{shippingCost === 0 ? 'FREE' : `$${shippingCost.toFixed(2)}`}</span>
               </div>
               <div className="summary-row">
                 <span>Tax</span>
-                <span>${tax.toFixed(2)}</span>
+                <span>${tax_amount.toFixed(2)}</span>
               </div>
               
               <div className="promo-section">
@@ -661,16 +878,16 @@ const Checkout = () => {
 
               <div className="summary-row total">
                 <span>Total</span>
-                <span>${total.toFixed(2)}</span>
+                <span>${total_amount.toFixed(2)}</span>
               </div>
             </div>
 
-            <button 
+            <button
               className="place-order-btn"
               onClick={handleSubmitOrder}
-              disabled={isLoading || cartItems.length === 0}
+              disabled={isLoading || cartItems.length === 0 || !selectedAddressId}
             >
-              {isLoading ? 'Processing...' : `Place Order - $${total.toFixed(2)}`}
+              {isLoading ? 'Processing...' : `Place Order - $${total_amount.toFixed(2)}`}
             </button>
 
             <div className="security-notice">
@@ -689,6 +906,24 @@ const Checkout = () => {
           </div>
         </div>
       </div>
+
+      {/* Address Form Modal */}
+      <AddressForm
+        isOpen={isAddressFormOpen}
+        onClose={() => setIsAddressFormOpen(false)}
+        onSave={handleSaveAddress}
+        editAddress={editingAddress}
+        userId={user?.id}
+      />
+
+      {/* Payment Form Modal */}
+      <PaymentForm
+        isOpen={isPaymentFormOpen}
+        onClose={() => setIsPaymentFormOpen(false)}
+        onSave={handleSavePayment}
+        editPayment={editingPayment}
+        userId={user?.id}
+      />
 
       <div className="checkout-features">
         <h2>Why Shop With IWX?</h2>
