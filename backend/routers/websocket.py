@@ -105,6 +105,25 @@ async def orders_websocket(websocket: WebSocket):
         logger.error(f"Orders WebSocket error: {e}")
         ws_manager.disconnect(websocket, "orders")
 
+@router.websocket("/cart/{user_id}")
+async def cart_websocket(websocket: WebSocket, user_id: str):
+    """WebSocket for real-time cart updates per user"""
+    await websocket.accept()
+    channel = f"cart_{user_id}"
+    await ws_manager.connect(websocket, channel)
+    logger.info(f"User {user_id} connected to cart WebSocket")
+
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await websocket.send_json({"type": "pong", "timestamp": datetime.utcnow().isoformat()})
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket, channel)
+        logger.info(f"User {user_id} disconnected from cart WebSocket")
+    except Exception as e:
+        logger.error(f"Cart WebSocket error for user {user_id}: {e}")
+        ws_manager.disconnect(websocket, channel)
+
 # Clean broadcast functions
 async def broadcast_to_channel(channel: str, message_type: str, data: dict):
     """Broadcast message to a specific channel"""
@@ -129,6 +148,13 @@ async def broadcast_order_update(order_id: str, update_type: str, data: dict):
     await broadcast_to_channel("orders", update_type, {
         "order_id": order_id,
         **data
+    })
+
+async def broadcast_cart_update(user_id: str, cart_data: dict):
+    """Broadcast cart update to user's WebSocket channel"""
+    channel = f"cart_{user_id}"
+    await broadcast_to_channel(channel, "CART_UPDATED", {
+        "cart": cart_data
     })
 
 # Admin dashboard broadcast functions

@@ -124,6 +124,16 @@ class WebSocketService {
   disconnectAdminDashboard() {
     this.disconnect('admin-dashboard');
   }
+
+  // Connect to cart WebSocket for real-time updates
+  connectCart(userId, onMessage, onError, onClose) {
+    return this.connect(`cart/${userId}`, onMessage, onError, onClose);
+  }
+
+  // Disconnect from cart WebSocket
+  disconnectCart(userId) {
+    this.disconnect(`cart/${userId}`);
+  }
 }
 
 // Create and export singleton instance

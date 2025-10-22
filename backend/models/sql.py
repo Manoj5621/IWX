@@ -48,6 +48,18 @@ class ShippingMethod(str, enum.Enum):
     EXPRESS = "express"
     OVERNIGHT = "overnight"
 
+class ReturnStatus(str, enum.Enum):
+    REQUESTED = "requested"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    RECEIVED = "received"
+    REFUNDED = "refunded"
+    CANCELLED = "cancelled"
+
+class RefundMethod(str, enum.Enum):
+    ORIGINAL_PAYMENT = "original_payment"
+    STORE_CREDIT = "store_credit"
+
 class User(Base):
     __tablename__ = "users"
 
@@ -212,6 +224,55 @@ class CartItem(Base):
     # Indexes
     __table_args__ = (
         Index('idx_cart_item_product', 'product_id'),
+    )
+
+class ReturnRequest(Base):
+    __tablename__ = "return_requests"
+
+    id = Column(String(36), primary_key=True, index=True)
+    return_number = Column(String(50), unique=True, nullable=False, index=True)
+    order_id = Column(String(36), ForeignKey('orders.id'), nullable=False, index=True)
+    user_id = Column(String(36), ForeignKey('users.id'), nullable=False, index=True)
+    status = Column(Enum(ReturnStatus), default=ReturnStatus.REQUESTED, nullable=False, index=True)
+    refund_method = Column(Enum(RefundMethod), nullable=False)
+    refund_amount = Column(Float)
+    admin_notes = Column(Text)
+    additional_notes = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    processed_at = Column(DateTime(timezone=True))
+
+    # Relationships
+    order = relationship("Order")
+    user = relationship("User")
+    items = relationship("ReturnItem", back_populates="return_request", cascade="all, delete-orphan")
+
+    # Indexes
+    __table_args__ = (
+        Index('idx_return_order_user', 'order_id', 'user_id'),
+        Index('idx_return_status_created', 'status', 'created_at'),
+    )
+
+class ReturnItem(Base):
+    __tablename__ = "return_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    return_request_id = Column(String(36), ForeignKey('return_requests.id'), nullable=False, index=True)
+    order_item_id = Column(Integer, ForeignKey('order_items.id'), nullable=False, index=True)
+    product_id = Column(String(36), ForeignKey('products.id'), nullable=False, index=True)
+    quantity = Column(Integer, nullable=False)
+    reason = Column(String(200), nullable=False)
+    condition = Column(String(50), default="good")
+    notes = Column(Text)
+
+    # Relationships
+    return_request = relationship("ReturnRequest", back_populates="items")
+    order_item = relationship("OrderItem")
+    product = relationship("Product")
+
+    # Indexes
+    __table_args__ = (
+        Index('idx_return_item_product', 'product_id'),
     )
 
 class Address(Base):

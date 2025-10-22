@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import Optional
 from models.wishlist import (
     WishlistItemCreate, WishlistItemUpdate, WishlistItemResponse,
-    WishlistResponse, WishlistStats
+    WishlistResponse, WishlistStats, WishlistItemBase
 )
 from models.user import UserInDB
 from services.wishlist_service import WishlistService
@@ -23,15 +23,18 @@ async def add_to_wishlist(
 ):
     """Add an item to user's wishlist"""
     try:
-        # Ensure item belongs to current user
-        if item_data.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Cannot add item to another user's wishlist"
-            )
+        # Create full item data with user_id from authenticated user
+        full_item_data = WishlistItemBase(
+            user_id=current_user.id,
+            product_id=item_data.product_id,
+            size=item_data.size,
+            color=item_data.color,
+            quantity=item_data.quantity,
+            notes=item_data.notes
+        )
 
         wishlist_service = get_wishlist_service()
-        item = await wishlist_service.add_to_wishlist(item_data)
+        item = await wishlist_service.add_to_wishlist(full_item_data)
         return item
     except ValueError as e:
         raise HTTPException(

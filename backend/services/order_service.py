@@ -3,12 +3,15 @@ from datetime import datetime
 from bson import ObjectId
 import string
 import random
-from database.mongodb import MongoDB, ORDERS_COLLECTION, PRODUCTS_COLLECTION
+from database.mongodb import MongoDB, ORDERS_COLLECTION, PRODUCTS_COLLECTION, CARTS_COLLECTION
 from models.order import (
     OrderCreate, OrderUpdate, OrderInDB, OrderResponse,
-    OrderListResponse, OrderStats, Cart, CartResponse, OrderStatus, PaymentStatus
+    OrderListResponse, OrderStats, Cart, CartResponse, OrderStatus, PaymentStatus,
+    ReturnRequestCreate, ReturnRequestUpdate, ReturnRequestInDB, ReturnRequestResponse,
+    ReturnRequestListResponse, ReturnStats, ReturnStatus, RefundMethod
 )
 from models.product import ProductInDB
+from routers.websocket import broadcast_cart_update
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,6 +23,13 @@ class OrderService:
         timestamp = datetime.utcnow().strftime("%Y%m%d")
         random_chars = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
         return f"IWX{timestamp}{random_chars}"
+
+    @staticmethod
+    def generate_return_number() -> str:
+        """Generate unique return number"""
+        timestamp = datetime.utcnow().strftime("%Y%m%d")
+        random_chars = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        return f"RR{timestamp}{random_chars}"
 
     @staticmethod
     async def create_order(order_data: OrderCreate) -> OrderInDB:
@@ -91,6 +101,9 @@ class OrderService:
                 {"_id": item.product_id},
                 {"$inc": {"inventory_quantity": -item.quantity}}
             )
+
+        # Clear user's cart after successful order
+        await OrderService.clear_user_cart(order_data.user_id)
 
         order_doc["id"] = order_doc["_id"]
         return OrderInDB(**order_doc)
@@ -279,9 +292,7 @@ class OrderService:
     @staticmethod
     async def get_user_cart(user_id: str) -> CartResponse:
         """Get user's cart"""
-        # For now, using a simple in-memory approach
-        # In production, this should be stored in database
-        cart_doc = await MongoDB.get_collection("carts").find_one({"user_id": user_id})
+        cart_doc = await MongoDB.get_collection(CARTS_COLLECTION).find_one({"user_id": user_id})
 
         if not cart_doc:
             return CartResponse(
@@ -303,8 +314,8 @@ class OrderService:
                 {"_id": item["product_id"]}
             )
             if product_doc:
-                product = ProductInDB(**product_doc)
                 product_doc["id"] = product_doc["_id"]
+                product = ProductInDB(**product_doc)
 
                 price = product.sale_price if product.sale_price else product.price
                 item_subtotal = price * item["quantity"]
@@ -334,13 +345,23 @@ class OrderService:
     @staticmethod
     async def update_cart(user_id: str, items: List[Dict[str, Any]]) -> CartResponse:
         """Update user's cart"""
+        # Store only basic item data (product_id, quantity, size, color)
+        basic_items = []
+        for item in items:
+            basic_items.append({
+                "product_id": item["product_id"],
+                "quantity": item["quantity"],
+                "size": item.get("size"),
+                "color": item.get("color")
+            })
+
         cart_doc = {
             "user_id": user_id,
-            "items": items,
+            "items": basic_items,
             "updated_at": datetime.utcnow()
         }
 
-        await MongoDB.get_collection("carts").replace_one(
+        await MongoDB.get_collection(CARTS_COLLECTION).replace_one(
             {"user_id": user_id},
             cart_doc,
             upsert=True
@@ -350,7 +371,18 @@ class OrderService:
 
     @staticmethod
     async def add_to_cart(user_id: str, product_id: str, quantity: int = 1, size: Optional[str] = None, color: Optional[str] = None) -> CartResponse:
-        """Add item to cart"""
+        """Add item to cart with stock validation"""
+        # Check product exists and has sufficient stock
+        product_doc = await MongoDB.get_collection(PRODUCTS_COLLECTION).find_one(
+            {"_id": product_id}
+        )
+        if not product_doc:
+            raise ValueError(f"Product {product_id} not found")
+
+        product_doc["id"] = product_doc["_id"]
+        product = ProductInDB(**product_doc)
+
+        # Get current cart
         cart = await OrderService.get_user_cart(user_id)
 
         # Check if item already exists
@@ -362,8 +394,21 @@ class OrderService:
                 existing_item = item
                 break
 
+        new_quantity = quantity
         if existing_item:
-            existing_item["quantity"] += quantity
+            new_quantity = existing_item["quantity"] + quantity
+
+        # Validate stock - ensure inventory_quantity is a number
+        try:
+            available_stock = int(product.inventory_quantity)
+        except (ValueError, TypeError):
+            available_stock = 0
+
+        if available_stock < new_quantity:
+            raise ValueError(f"Insufficient stock. Available: {available_stock}, requested: {new_quantity}")
+
+        if existing_item:
+            existing_item["quantity"] = new_quantity
         else:
             cart.items.append({
                 "product_id": product_id,
@@ -372,7 +417,51 @@ class OrderService:
                 "color": color
             })
 
-        return await OrderService.update_cart(user_id, cart.items)
+        # Broadcast cart update
+        updated_cart = await OrderService.update_cart(user_id, cart.items)
+        await broadcast_cart_update(user_id, updated_cart.dict())
+        return updated_cart
+
+    @staticmethod
+    async def update_cart_quantity(user_id: str, product_id: str, quantity: int, size: Optional[str] = None, color: Optional[str] = None) -> CartResponse:
+        """Update cart item quantity with stock validation"""
+        if quantity <= 0:
+            return await OrderService.remove_from_cart(user_id, product_id, size, color)
+
+        # Check product stock
+        product_doc = await MongoDB.get_collection(PRODUCTS_COLLECTION).find_one(
+            {"_id": product_id}
+        )
+        if not product_doc:
+            raise ValueError(f"Product {product_id} not found")
+
+        product_doc["id"] = product_doc["_id"]
+        product = ProductInDB(**product_doc)
+
+        # Validate stock - ensure inventory_quantity is a number
+        try:
+            available_stock = int(product.inventory_quantity)
+        except (ValueError, TypeError):
+            available_stock = 0
+
+        if available_stock < quantity:
+            raise ValueError(f"Insufficient stock. Available: {available_stock}, requested: {quantity}")
+
+        # Get current cart
+        cart = await OrderService.get_user_cart(user_id)
+
+        # Find and update item
+        for item in cart.items:
+            if (item["product_id"] == product_id and
+                item.get("size") == size and
+                item.get("color") == color):
+                item["quantity"] = quantity
+                break
+
+        # Broadcast cart update
+        updated_cart = await OrderService.update_cart(user_id, cart.items)
+        await broadcast_cart_update(user_id, updated_cart.dict())
+        return updated_cart
 
     @staticmethod
     async def remove_from_cart(user_id: str, product_id: str, size: Optional[str] = None, color: Optional[str] = None) -> CartResponse:
@@ -382,8 +471,190 @@ class OrderService:
         cart.items = [
             item for item in cart.items
             if not (item["product_id"] == product_id and
-                   item.get("size") == size and
-                   item.get("color") == color)
+                    item.get("size") == size and
+                    item.get("color") == color)
         ]
 
-        return await OrderService.update_cart(user_id, cart.items)
+        # Broadcast cart update
+        updated_cart = await OrderService.update_cart(user_id, cart.items)
+        await broadcast_cart_update(user_id, updated_cart.dict())
+        return updated_cart
+
+    @staticmethod
+    async def clear_user_cart(user_id: str) -> None:
+        """Clear user's cart after successful order"""
+        await MongoDB.get_collection(CARTS_COLLECTION).delete_one({"user_id": user_id})
+
+    # Return/Refund methods
+    @staticmethod
+    async def create_return_request(return_data: ReturnRequestCreate, user_id: str) -> ReturnRequestInDB:
+        """Create a return request"""
+        # Validate order ownership
+        order = await OrderService.get_order_by_id(return_data.order_id)
+        if not order:
+            raise ValueError("Order not found")
+        if order.user_id != user_id:
+            raise ValueError("Order does not belong to user")
+
+        # Validate order is eligible for return (delivered and within timeframe)
+        if order.status != OrderStatus.DELIVERED:
+            raise ValueError("Order must be delivered to be eligible for return")
+
+        # Check if return window is still open (30 days)
+        from datetime import timedelta
+        if order.delivered_at and (datetime.utcnow() - order.delivered_at) > timedelta(days=30):
+            raise ValueError("Return window has expired")
+
+        # Validate return items
+        total_refund = 0.0
+        for return_item in return_data.items:
+            # Find corresponding order item
+            order_item = None
+            for item in order.items:
+                if item.id == return_item.order_item_id:
+                    order_item = item
+                    break
+
+            if not order_item:
+                raise ValueError(f"Order item {return_item.order_item_id} not found")
+
+            if return_item.quantity > order_item.quantity:
+                raise ValueError(f"Return quantity exceeds ordered quantity for item {return_item.order_item_id}")
+
+            total_refund += order_item.price * return_item.quantity
+
+        now = datetime.utcnow()
+        return_doc = {
+            "_id": str(ObjectId()),
+            **return_data.dict(),
+            "user_id": user_id,
+            "return_number": OrderService.generate_return_number(),
+            "status": ReturnStatus.REQUESTED,
+            "refund_amount": total_refund,
+            "created_at": now,
+            "updated_at": now,
+            "processed_at": None
+        }
+
+        # Insert return request
+        await MongoDB.get_collection("return_requests").insert_one(return_doc)
+
+        return_doc["id"] = return_doc["_id"]
+        return ReturnRequestInDB(**return_doc)
+
+    @staticmethod
+    async def get_return_request(return_id: str, user_id: str) -> Optional[ReturnRequestInDB]:
+        """Get return request by ID"""
+        return_doc = await MongoDB.get_collection("return_requests").find_one({
+            "_id": return_id,
+            "user_id": user_id
+        })
+
+        if not return_doc:
+            return None
+
+        return_doc["id"] = return_doc["_id"]
+        return ReturnRequestInDB(**return_doc)
+
+    @staticmethod
+    async def update_return_request(return_id: str, update_data: ReturnRequestUpdate) -> Optional[ReturnRequestInDB]:
+        """Update return request"""
+        update_dict = {"updated_at": datetime.utcnow()}
+
+        if update_data.status:
+            update_dict["status"] = update_data.status
+            if update_data.status in [ReturnStatus.APPROVED, ReturnStatus.REJECTED, ReturnStatus.REFUNDED]:
+                update_dict["processed_at"] = datetime.utcnow()
+
+        if update_data.admin_notes is not None:
+            update_dict["admin_notes"] = update_data.admin_notes
+
+        if update_data.refund_amount is not None:
+            update_dict["refund_amount"] = update_data.refund_amount
+
+        result = await MongoDB.get_collection("return_requests").update_one(
+            {"_id": return_id},
+            {"$set": update_dict}
+        )
+
+        if result.modified_count == 0:
+            return None
+
+        return await OrderService.get_return_request(return_id, "")  # Admin can get any
+
+    @staticmethod
+    async def list_return_requests(
+        user_id: Optional[str] = None,
+        status: Optional[ReturnStatus] = None,
+        skip: int = 0,
+        limit: int = 50
+    ) -> ReturnRequestListResponse:
+        """List return requests with filters"""
+        query = {}
+
+        if user_id:
+            query["user_id"] = user_id
+        if status:
+            query["status"] = status
+
+        total = await MongoDB.get_collection("return_requests").count_documents(query)
+
+        cursor = MongoDB.get_collection("return_requests").find(query)\
+            .sort("created_at", -1)\
+            .skip(skip)\
+            .limit(limit)
+
+        returns = []
+        async for return_doc in cursor:
+            return_doc["id"] = return_doc["_id"]
+            return_request = ReturnRequestInDB(**return_doc)
+            returns.append(ReturnRequestResponse(**return_request.dict()))
+
+        return ReturnRequestListResponse(
+            returns=returns,
+            total=total,
+            page=(skip // limit) + 1,
+            limit=limit,
+            has_next=(skip + limit) < total,
+            has_prev=skip > 0
+        )
+
+    @staticmethod
+    async def get_return_stats() -> ReturnStats:
+        """Get return statistics"""
+        pipeline = [
+            {
+                "$group": {
+                    "_id": None,
+                    "total_returns": {"$sum": 1},
+                    "pending_returns": {
+                        "$sum": {"$cond": [{"$eq": ["$status", ReturnStatus.REQUESTED]}, 1, 0]}
+                    },
+                    "approved_returns": {
+                        "$sum": {"$cond": [{"$eq": ["$status", ReturnStatus.APPROVED]}, 1, 0]}
+                    },
+                    "rejected_returns": {
+                        "$sum": {"$cond": [{"$eq": ["$status", ReturnStatus.REJECTED]}, 1, 0]}
+                    },
+                    "completed_returns": {
+                        "$sum": {"$cond": [{"$eq": ["$status", ReturnStatus.REFUNDED]}, 1, 0]}
+                    },
+                    "total_refund_amount": {"$sum": "$refund_amount"}
+                }
+            }
+        ]
+
+        result = await MongoDB.get_collection("return_requests").aggregate(pipeline).to_list(1)
+
+        if not result:
+            return ReturnStats(
+                total_returns=0,
+                pending_returns=0,
+                approved_returns=0,
+                rejected_returns=0,
+                completed_returns=0,
+                total_refund_amount=0.0
+            )
+
+        stats = result[0]
+        return ReturnStats(**stats)

@@ -1,48 +1,37 @@
 // Cart.jsx
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar/Navbar';
 import AlertBox from '../components/AlertBox';
+import websocketService from '../services/websocket';
+import {
+  fetchCart,
+  updateCartItemQuantity,
+  removeItemFromCart,
+  updateCartFromWS,
+  setWSConnected,
+  addItemToCart
+} from '../redux/slices/cartSlice';
 import './Cart.css';
 
 const Cart = () => {
-  const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      name: 'Oversized Blazer',
-      price: 89.99,
-      originalPrice: 119.99,
-      image: 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80',
-      size: 'M',
-      color: 'Black',
-      quantity: 1,
-      inStock: true,
-      deliveryDate: 'May 25-27'
-    },
-    {
-      id: 2,
-      name: 'Leather Tote Bag',
-      price: 59.99,
-      originalPrice: 79.99,
-      image: 'https://images.unsplash.com/photo-1583744946564-b52ae1c3c559?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80',
-      size: 'One Size',
-      color: 'Brown',
-      quantity: 2,
-      inStock: true,
-      deliveryDate: 'May 24-26'
-    },
-    {
-      id: 3,
-      name: 'Slim Fit Jeans',
-      price: 49.99,
-      image: 'https://images.unsplash.com/photo-1583394838336-acd977736f90?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=774&q=80',
-      size: '32',
-      color: 'Dark Blue',
-      quantity: 1,
-      inStock: false,
-      deliveryDate: 'Backordered'
-    }
-  ]);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const {
+    items: cartItems,
+    subtotal,
+    tax_amount,
+    shipping_cost,
+    total_amount,
+    itemCount,
+    loading,
+    error,
+    wsConnected
+  } = useSelector(state => state.cart);
+
+  const { user } = useSelector(state => state.auth);
 
   const [promoCode, setPromoCode] = useState('');
   const [promoApplied, setPromoApplied] = useState(false);
@@ -52,6 +41,11 @@ const Cart = () => {
   const [alert, setAlert] = useState(null);
 
   useEffect(() => {
+    // Fetch cart data on component mount
+    if (user) {
+      dispatch(fetchCart());
+    }
+
     // Simulate loading suggested items
     const loadSuggestedItems = () => {
       const items = [
@@ -88,18 +82,68 @@ const Cart = () => {
     };
 
     loadSuggestedItems();
-  }, []);
+  }, [dispatch, user]);
 
-  const updateQuantity = (id, newQuantity) => {
+  // WebSocket connection for real-time cart updates
+  useEffect(() => {
+    if (user && user.id) {
+      const handleWSMessage = (data) => {
+        if (data.type === 'CART_UPDATED') {
+          dispatch(updateCartFromWS(data.data));
+        }
+      };
+
+      const handleWSError = (error) => {
+        console.error('Cart WebSocket error:', error);
+        dispatch(setWSConnected(false));
+      };
+
+      const handleWSClose = () => {
+        dispatch(setWSConnected(false));
+      };
+
+      const ws = websocketService.connectCart(user.id, handleWSMessage, handleWSError, handleWSClose);
+      if (ws) {
+        dispatch(setWSConnected(true));
+      }
+
+      return () => {
+        websocketService.disconnectCart(user.id);
+      };
+    }
+  }, [dispatch, user]);
+
+  const updateQuantity = async (productId, newQuantity, size = null, color = null) => {
     if (newQuantity < 1) return;
-    
-    setCartItems(cartItems.map(item => 
-      item.id === id ? { ...item, quantity: newQuantity } : item
-    ));
+
+    try {
+      await dispatch(updateCartItemQuantity({
+        productId,
+        quantity: newQuantity,
+        size,
+        color
+      })).unwrap();
+    } catch (error) {
+      setAlert({
+        type: 'error',
+        message: error || 'Failed to update quantity'
+      });
+    }
   };
 
-  const removeItem = (id) => {
-    setCartItems(cartItems.filter(item => item.id !== id));
+  const removeItem = async (productId, size = null, color = null) => {
+    try {
+      await dispatch(removeItemFromCart({
+        productId,
+        size,
+        color
+      })).unwrap();
+    } catch (error) {
+      setAlert({
+        type: 'error',
+        message: error || 'Failed to remove item'
+      });
+    }
   };
 
   const applyPromoCode = () => {
@@ -117,12 +161,11 @@ const Cart = () => {
     }
   };
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  // Use values from Redux store, but keep promo logic for UI compatibility
   const discount = promoApplied ? subtotal * 0.2 : 0;
-  const shipping = subtotal > 0 ? (subtotal > 100 ? 0 : 9.99) : 0;
   const giftWrapFee = giftWrap ? 4.99 : 0;
-  const tax = (subtotal - discount) * 0.08;
-  const total = subtotal - discount + shipping + giftWrapFee + tax;
+  const adjustedSubtotal = subtotal - discount;
+  const adjustedTotal = adjustedSubtotal + tax_amount + shipping_cost + giftWrapFee;
 
   const checkout = () => {
     setAlert({
@@ -131,21 +174,23 @@ const Cart = () => {
     });
   };
 
-  const addSuggestedItem = (item) => {
-    // Check if item already exists in cart
-    const existingItem = cartItems.find(cartItem => cartItem.id === item.id);
-    
-    if (existingItem) {
-      updateQuantity(existingItem.id, existingItem.quantity + 1);
-    } else {
-      setCartItems([...cartItems, {
-        ...item,
-        size: 'M',
-        color: 'Black',
+  const addSuggestedItem = async (item) => {
+    try {
+      await dispatch(addItemToCart({
+        productId: item.id,
         quantity: 1,
-        inStock: true,
-        deliveryDate: 'May 25-27'
-      }]);
+        size: 'M',
+        color: 'Black'
+      })).unwrap();
+      setAlert({
+        type: 'success',
+        message: 'Item added to cart successfully!'
+      });
+    } catch (error) {
+      setAlert({
+        type: 'error',
+        message: error || 'Failed to add item to cart'
+      });
     }
   };
 
@@ -164,7 +209,7 @@ const Cart = () => {
       <header className="cart-header">
         <div className="container">
           <h1>SHOPPING BAG</h1>
-          <p className="items-count">{cartItems.length} {cartItems.length === 1 ? 'ITEM' : 'ITEMS'}</p>
+          <p className="items-count">{itemCount} {itemCount === 1 ? 'ITEM' : 'ITEMS'}</p>
         </div>
       </header>
 
@@ -175,60 +220,62 @@ const Cart = () => {
             <div className="cart-items-section">
               <div className="section-header">
                 <h2>Your Items</h2>
-                <button className="continue-shopping">Continue Shopping</button>
+                <button className="continue-shopping" onClick={() => navigate('/productList')}>Continue Shopping</button>
               </div>
 
-              {cartItems.length === 0 ? (
+              {itemCount === 0 ? (
                 <div className="empty-cart">
                   <div className="empty-cart-icon">🛒</div>
                   <h3>Your bag is empty</h3>
                   <p>Start shopping to add items to your bag</p>
-                  <button className="start-shopping-btn">Start Shopping</button>
+                  <button className="start-shopping-btn" onClick={() => navigate('/productList')}>Start Shopping</button>
                 </div>
               ) : (
                 <div className="cart-items">
                   {cartItems.map(item => (
-                    <div key={item.id} className="cart-item">
+                    <div key={`${item.product_id}-${item.size}-${item.color}`} className="cart-item">
                       <div className="item-image">
-                        <img src={item.image} alt={item.name} />
-                        {!item.inStock && <span className="out-of-stock-badge">Out of Stock</span>}
+                        <img src={item.product?.images?.[0] || item.image} alt={item.product?.name || item.name} />
+                        {item.product && item.product.inventory_quantity < item.quantity && (
+                          <span className="out-of-stock-badge">Out of Stock</span>
+                        )}
                       </div>
-                      
+
                       <div className="item-details">
-                        <h3 className="item-name">{item.name}</h3>
+                        <h3 className="item-name">{item.product?.name || item.name}</h3>
                         <p className="item-color">Color: {item.color}</p>
                         <p className="item-size">Size: {item.size}</p>
-                        
+
                         <div className="item-price">
-                          {item.originalPrice && (
-                            <span className="original-price">${item.originalPrice.toFixed(2)}</span>
+                          {item.product?.sale_price && (
+                            <span className="original-price">${item.product.price.toFixed(2)}</span>
                           )}
                           <span className="current-price">${item.price.toFixed(2)}</span>
                         </div>
-                        
-                        <p className="delivery-date">Estimated delivery: {item.deliveryDate}</p>
-                        
-                        {!item.inStock && (
+
+                        <p className="delivery-date">Estimated delivery: 3-5 business days</p>
+
+                        {item.product && item.product.inventory_quantity < item.quantity && (
                           <p className="stock-notification">We'll notify you when this item is back in stock</p>
                         )}
                       </div>
-                      
+
                       <div className="item-controls">
                         <div className="quantity-selector">
-                          <button 
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          <button
+                            onClick={() => updateQuantity(item.product_id, item.quantity - 1, item.size, item.color)}
                             disabled={item.quantity <= 1}
                           >
                             -
                           </button>
                           <span>{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</button>
+                          <button onClick={() => updateQuantity(item.product_id, item.quantity + 1, item.size, item.color)}>+</button>
                         </div>
-                        
-                        <button className="remove-item" onClick={() => removeItem(item.id)}>
+
+                        <button className="remove-item" onClick={() => removeItem(item.product_id, item.size, item.color)}>
                           Remove
                         </button>
-                        
+
                         <button className="save-later">
                           Save for later
                         </button>
@@ -245,46 +292,46 @@ const Cart = () => {
                 <h2>Order Summary</h2>
                 
                 <div className="summary-row">
-                  <span>Subtotal</span>
-                  <span>${subtotal.toFixed(2)}</span>
-                </div>
-                
-                {promoApplied && (
-                  <div className="summary-row discount">
-                    <span>Discount (20%)</span>
-                    <span>-${discount.toFixed(2)}</span>
-                  </div>
-                )}
-                
-                <div className="summary-row">
-                  <span>Shipping</span>
-                  <span>{shipping === 0 ? 'FREE' : `$${shipping.toFixed(2)}`}</span>
-                </div>
-                
-                <div className="summary-row">
-                  <span>
-                    Gift Wrap
-                    <label className="gift-wrap-toggle">
-                      <input 
-                        type="checkbox" 
-                        checked={giftWrap}
-                        onChange={() => setGiftWrap(!giftWrap)}
-                      />
-                      <span className="slider"></span>
-                    </label>
-                  </span>
-                  <span>{giftWrap ? '$4.99' : 'Add'}</span>
-                </div>
-                
-                <div className="summary-row">
-                  <span>Tax</span>
-                  <span>${tax.toFixed(2)}</span>
-                </div>
-                
-                <div className="summary-row total">
-                  <span>Total</span>
-                  <span>${total.toFixed(2)}</span>
-                </div>
+                   <span>Subtotal</span>
+                   <span>${subtotal.toFixed(2)}</span>
+                 </div>
+
+                 {promoApplied && (
+                   <div className="summary-row discount">
+                     <span>Discount (20%)</span>
+                     <span>-${discount.toFixed(2)}</span>
+                   </div>
+                 )}
+
+                 <div className="summary-row">
+                   <span>Shipping</span>
+                   <span>{shipping_cost === 0 ? 'FREE' : `$${shipping_cost.toFixed(2)}`}</span>
+                 </div>
+
+                 <div className="summary-row">
+                   <span>
+                     Gift Wrap
+                     <label className="gift-wrap-toggle">
+                       <input
+                         type="checkbox"
+                         checked={giftWrap}
+                         onChange={() => setGiftWrap(!giftWrap)}
+                       />
+                       <span className="slider"></span>
+                     </label>
+                   </span>
+                   <span>{giftWrap ? '$4.99' : 'Add'}</span>
+                 </div>
+
+                 <div className="summary-row">
+                   <span>Tax</span>
+                   <span>${tax_amount.toFixed(2)}</span>
+                 </div>
+
+                 <div className="summary-row total">
+                   <span>Total</span>
+                   <span>${(promoApplied ? adjustedTotal : total_amount + (giftWrap ? 4.99 : 0)).toFixed(2)}</span>
+                 </div>
                 
                 <div className="promo-section">
                   {!promoApplied ? (
@@ -320,13 +367,13 @@ const Cart = () => {
                   )}
                 </div>
                 
-                <button 
-                  className="checkout-btn"
-                  onClick={checkout}
-                  disabled={cartItems.length === 0}
-                >
-                  Proceed to Checkout
-                </button>
+                <button
+                   className="checkout-btn"
+                   onClick={checkout}
+                   disabled={itemCount === 0}
+                 >
+                   Proceed to Checkout
+                 </button>
                 
                 <div className="security-notice">
                   <span>🔒</span>
@@ -349,9 +396,9 @@ const Cart = () => {
                 <h3>Free Shipping on Orders Over $100</h3>
                 <p>Add ${(100 - subtotal).toFixed(2)} more to qualify for free shipping</p>
                 <div className="shipping-progress">
-                  <div 
+                  <div
                     className="progress-bar"
-                    style={{ width: `${Math.min(subtotal, 100)}%` }}
+                    style={{ width: `${Math.min((subtotal / 100) * 100, 100)}%` }}
                   ></div>
                 </div>
               </div>
@@ -364,7 +411,7 @@ const Cart = () => {
           </div>
           
           {/* Recently Viewed */}
-          {cartItems.length > 0 && (
+          {itemCount > 0 && (
             <div className="recently-viewed-section">
               <h2>Recently Viewed</h2>
               <div className="viewed-items">

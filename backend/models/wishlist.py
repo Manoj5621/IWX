@@ -10,8 +10,12 @@ class WishlistItemBase(BaseModel):
     quantity: int = Field(default=1, ge=1)
     notes: Optional[str] = Field(None, max_length=500)
 
-class WishlistItemCreate(WishlistItemBase):
-    pass
+class WishlistItemCreate(BaseModel):
+    product_id: str
+    size: Optional[str] = Field(None, max_length=50)
+    color: Optional[str] = Field(None, max_length=50)
+    quantity: int = Field(default=1, ge=1)
+    notes: Optional[str] = Field(None, max_length=500)
 
 class WishlistItemUpdate(BaseModel):
     size: Optional[str] = Field(None, max_length=50)

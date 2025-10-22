@@ -1,13 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import Navbar from '../components/Navbar/Navbar';
 import { productAPI } from '../api/productAPI';
+import { cartAPI } from '../api/cartAPI';
+import { wishlistAPI } from '../api/wishlistAPI';
+import { addItemToCart } from '../redux/slices/cartSlice';
 import './ProductDetails.css';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { user } = useSelector(state => state.auth);
   const [selectedColor, setSelectedColor] = useState('black');
   const [selectedSize, setSelectedSize] = useState('M');
   const [quantity, setQuantity] = useState(1);
@@ -145,13 +151,77 @@ const ProductDetail = () => {
     fetchProduct();
   }, [id, navigate]);
 
-  const handleAddToCart = () => {
-    // In a real app, this would add the product to the cart
-    setShowNotification(true);
+  // Check wishlist status when product loads
+  useEffect(() => {
+    const checkWishlistStatus = async () => {
+      if (user && product && product.id) {
+        try {
+          const result = await wishlistAPI.checkInWishlist(product.id, selectedSize, selectedColor);
+          setIsWishlisted(result.in_wishlist);
+        } catch (error) {
+          console.error('Failed to check wishlist status:', error);
+        }
+      }
+    };
+
+    checkWishlistStatus();
+  }, [user, product, selectedSize, selectedColor]);
+
+  const handleAddToCart = async () => {
+    if (!user) {
+      // Redirect to login or show login prompt
+      navigate('/auth');
+      return;
+    }
+
+    try {
+      await dispatch(addItemToCart({
+        productId: id,
+        quantity,
+        size: selectedSize,
+        color: selectedColor
+      })).unwrap();
+      setShowNotification(true);
+    } catch (error) {
+      console.error('Failed to add to cart:', error);
+      // Show error notification
+      setShowNotification(true);
+      // You could set an error state here
+    }
   };
 
-  const handleWishlist = () => {
-    setIsWishlisted(!isWishlisted);
+  const handleWishlist = async () => {
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+
+    try {
+      if (isWishlisted) {
+        // Get wishlist to find the item ID
+        const wishlist = await wishlistAPI.getWishlist();
+        const item = wishlist.items.find(item =>
+          item.product_id === id &&
+          item.size === selectedSize &&
+          item.color === selectedColor
+        );
+        if (item) {
+          // Remove from wishlist using item ID
+          await wishlistAPI.removeFromWishlist(item.id);
+        }
+      } else {
+        // Add to wishlist
+        await wishlistAPI.addToWishlist({
+          product_id: id,
+          size: selectedSize,
+          color: selectedColor,
+          quantity: 1
+        });
+      }
+      setIsWishlisted(!isWishlisted);
+    } catch (error) {
+      console.error('Failed to update wishlist:', error);
+    }
   };
 
   const incrementQuantity = () => {
@@ -421,12 +491,12 @@ const ProductDetail = () => {
               </div>
 
               <div className="action-buttons">
-                <button 
+                <button
                   className="add-to-cart-btn"
                   onClick={handleAddToCart}
-                  disabled={!product.inStock}
+                  disabled={!product.inventory_quantity || product.inventory_quantity <= 0}
                 >
-                  {product.inStock ? 'Add to Bag' : 'Out of Stock'}
+                  {product.inventory_quantity && product.inventory_quantity > 0 ? 'Add to Bag' : 'Out of Stock'}
                 </button>
                 <button className="buy-now-btn">
                   Buy Now

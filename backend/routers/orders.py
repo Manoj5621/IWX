@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import Optional, List
 from models.order import (
     OrderCreate, OrderUpdate, OrderResponse, OrderListResponse,
-    OrderStats, CartResponse
+    OrderStats, CartResponse, ReturnRequestCreate, ReturnRequestUpdate,
+    ReturnRequestResponse, ReturnRequestListResponse, ReturnStats
 )
 from models.user import UserInDB
 from services.order_service import OrderService
@@ -184,18 +185,23 @@ async def get_cart(current_user: UserInDB = Depends(get_current_active_user)):
 
 @router.post("/cart/add/")
 async def add_to_cart(
-    product_id: str,
-    quantity: int = 1,
-    size: Optional[str] = None,
-    color: Optional[str] = None,
+    product_id: str = Query(..., description="Product ID"),
+    quantity: int = Query(1, description="Quantity to add"),
+    size: Optional[str] = Query(None, description="Product size"),
+    color: Optional[str] = Query(None, description="Product color"),
     current_user: UserInDB = Depends(get_current_active_user)
 ):
-    """Add item to cart"""
+    """Add item to cart with stock validation"""
     try:
         cart = await OrderService.add_to_cart(
             current_user.id, product_id, quantity, size, color
         )
         return {"message": "Item added to cart", "cart": cart}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         logger.error(f"Add to cart error: {e}")
         raise HTTPException(
@@ -203,11 +209,37 @@ async def add_to_cart(
             detail="Failed to add item to cart"
         )
 
+@router.put("/cart/update/")
+async def update_cart_quantity(
+    product_id: str = Query(..., description="Product ID"),
+    quantity: int = Query(..., description="New quantity"),
+    size: Optional[str] = Query(None, description="Product size"),
+    color: Optional[str] = Query(None, description="Product color"),
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """Update cart item quantity with stock validation"""
+    try:
+        cart = await OrderService.update_cart_quantity(
+            current_user.id, product_id, quantity, size, color
+        )
+        return {"message": "Cart updated", "cart": cart}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Update cart quantity error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update cart"
+        )
+
 @router.delete("/cart/remove/")
 async def remove_from_cart(
-    product_id: str,
-    size: Optional[str] = None,
-    color: Optional[str] = None,
+    product_id: str = Query(..., description="Product ID"),
+    size: Optional[str] = Query(None, description="Product size"),
+    color: Optional[str] = Query(None, description="Product color"),
     current_user: UserInDB = Depends(get_current_active_user)
 ):
     """Remove item from cart"""
@@ -223,18 +255,107 @@ async def remove_from_cart(
             detail="Failed to remove item from cart"
         )
 
-@router.put("/cart/update/")
-async def update_cart(
-    items: List[dict],
+# Return/Refund endpoints
+@router.post("/returns/", response_model=ReturnRequestResponse)
+async def create_return_request(
+    return_data: ReturnRequestCreate,
     current_user: UserInDB = Depends(get_current_active_user)
 ):
-    """Update entire cart"""
+    """Create a return request"""
     try:
-        cart = await OrderService.update_cart(current_user.id, items)
-        return {"message": "Cart updated", "cart": cart}
+        return_request = await OrderService.create_return_request(return_data, current_user.id)
+        return ReturnRequestResponse(**return_request.dict())
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
-        logger.error(f"Update cart error: {e}")
+        logger.error(f"Create return request error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update cart"
+            detail="Failed to create return request"
+        )
+
+@router.get("/returns/{return_id}", response_model=ReturnRequestResponse)
+async def get_return_request(
+    return_id: str,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """Get return request by ID"""
+    try:
+        return_request = await OrderService.get_return_request(return_id, current_user.id)
+        if not return_request:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Return request not found"
+            )
+        return ReturnRequestResponse(**return_request.dict())
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get return request error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get return request"
+        )
+
+@router.get("/returns/", response_model=ReturnRequestListResponse)
+async def list_return_requests(
+    status: Optional[str] = None,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """List user's return requests"""
+    try:
+        result = await OrderService.list_return_requests(
+            user_id=current_user.id,
+            status=status,
+            skip=skip,
+            limit=limit
+        )
+        return result
+    except Exception as e:
+        logger.error(f"List return requests error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to list return requests"
+        )
+
+@router.put("/returns/{return_id}", response_model=ReturnRequestResponse)
+async def update_return_request(
+    return_id: str,
+    update_data: ReturnRequestUpdate,
+    current_user: UserInDB = Depends(get_current_editor_user)
+):
+    """Update return request (Admin/Editor only)"""
+    try:
+        return_request = await OrderService.update_return_request(return_id, update_data)
+        if not return_request:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Return request not found"
+            )
+        return ReturnRequestResponse(**return_request.dict())
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update return request error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update return request"
+        )
+
+@router.get("/returns/stats/", response_model=ReturnStats)
+async def get_return_stats(current_user: UserInDB = Depends(get_current_editor_user)):
+    """Get return statistics (Admin/Editor only)"""
+    try:
+        stats = await OrderService.get_return_stats()
+        return stats
+    except Exception as e:
+        logger.error(f"Get return stats error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to get return statistics"
         )
