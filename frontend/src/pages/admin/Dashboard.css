@@ -377,26 +377,7 @@ body {
   display: none;
 }
 
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  margin: 0;
-  padding: var(--spacing-md) var(--spacing-lg);
-  background: none;
-  border: none;
-  text-align: left;
-  cursor: pointer;
-  font-size: 15px;
-  font-weight: var(--font-weight-regular);
-  transition: var(--transition-fast);
-  color: var(--dark-gray);
-  border-left: 4px solid transparent;
-  border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0;
-  position: relative;
-  width: 100%;
-  min-height: 48px;
-}
+
 
 .nav-item:hover {
   background: var(--light-gray);

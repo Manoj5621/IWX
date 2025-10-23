@@ -974,6 +974,7 @@ section {
 
 .newsletter-form button:hover {
   background: #ddd;
+  color: black;
 }
 
 .newsletter-note {
