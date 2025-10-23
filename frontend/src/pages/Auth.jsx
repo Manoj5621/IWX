@@ -18,7 +18,8 @@ const Auth = () => {
     email: '',
     password: '',
     confirmPassword: '',
-    newsletter: true
+    newsletter: true,
+    rememberMe: false
   });
   const [errors, setErrors] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -117,7 +118,8 @@ React.useEffect(() => {
       if (isLogin) {
         const response = await authAPI.login({
           email: formData.email,
-          password: formData.password
+          password: formData.password,
+          remember_me: formData.rememberMe
         });
         // Store user role in localStorage
         const userRole = response.user?.role || 'user';
@@ -126,7 +128,8 @@ React.useEffect(() => {
         // Dispatch login success to Redux store
         dispatch(loginSuccess({
           user: response.user,
-          token: response.access_token
+          token: response.access_token,
+          rememberMe: false // Google login doesn't have remember me
         }));
         navigate('/');
       } else {
@@ -149,7 +152,8 @@ React.useEffect(() => {
         // Dispatch login success to Redux store
         dispatch(loginSuccess({
           user: response.user,
-          token: response.access_token
+          token: response.access_token,
+          rememberMe: false // Registration doesn't have remember me
         }));
         navigate('/');
       }
@@ -203,7 +207,8 @@ React.useEffect(() => {
       // Dispatch login success to Redux store
       dispatch(loginSuccess({
         user: response.user,
-        token: response.access_token
+        token: response.access_token,
+        rememberMe: formData.rememberMe
       }));
 
       // Clear URL parameters and redirect to home
@@ -404,7 +409,12 @@ React.useEffect(() => {
                 {isLogin && (
                   <div className="form-options">
                     <label className="checkbox-label">
-                      <input type="checkbox" />
+                      <input
+                        type="checkbox"
+                        name="rememberMe"
+                        checked={formData.rememberMe}
+                        onChange={handleInputChange}
+                      />
                       <span className="checkmark"></span>
                       Remember me
                     </label>

@@ -115,6 +115,10 @@ const Profile = () => {
 
       if (user.preferences) {
         setPreferences(user.preferences);
+        // Set active tab from saved preference
+        setActiveTab(user.preferences.last_active_section || 'profile');
+      } else {
+        setActiveTab('profile');
       }
 
       // Load real data for all sections with error handling
@@ -270,6 +274,26 @@ const Profile = () => {
     }
   };
 
+  const handleTabChange = async (tabId) => {
+    setActiveTab(tabId);
+
+    // Save the active tab to user preferences
+    const newPreferences = {
+      ...preferences,
+      last_active_section: tabId
+    };
+    setPreferences(newPreferences);
+
+    try {
+      const updatedUser = await authAPI.updateCurrentUser({ preferences: newPreferences });
+      dispatch(updateUser(updatedUser));
+    } catch (err) {
+      console.error('Error updating active tab preference:', err);
+      // Revert on error
+      setPreferences(preferences);
+    }
+  };
+
   const handleSave = async () => {
     try {
       setError('');
@@ -344,14 +368,8 @@ const Profile = () => {
     try {
       await addressAPI.deleteAddress(addressId);
       await loadAddresses();
-      setSuccess('Address deleted successfully!');
-      setAlertType('success');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error deleting address:', err);
-      setError('Failed to delete address. Please try again.');
-      setAlertType('error');
-      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -361,9 +379,6 @@ const Profile = () => {
       await loadPaymentMethods();
     } catch (err) {
       console.error('Error setting default payment:', err);
-      setError('Failed to update default payment method. Please try again.');
-      setAlertType('error');
-      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -373,14 +388,8 @@ const Profile = () => {
     try {
       await paymentAPI.deletePaymentMethod(paymentId);
       await loadPaymentMethods();
-      setSuccess('Payment method deleted successfully!');
-      setAlertType('success');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error deleting payment method:', err);
-      setError('Failed to delete payment method. Please try again.');
-      setAlertType('error');
-      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -388,14 +397,8 @@ const Profile = () => {
     try {
       await wishlistAPI.removeFromWishlist(itemId);
       await loadWishlist();
-      setSuccess('Item removed from wishlist!');
-      setAlertType('success');
-      setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
       console.error('Error removing from wishlist:', err);
-      setError('Failed to remove item from wishlist. Please try again.');
-      setAlertType('error');
-      setTimeout(() => setError(''), 3000);
     }
   };
 
@@ -553,6 +556,7 @@ const Profile = () => {
           <div className="profile-nav">
             {[
               { id: 'profile', label: 'Profile', icon: '👤' },
+              ...(user?.role === 'admin' ? [{ id: 'dashboard', label: 'Dashboard', icon: '📊', isAdmin: true }] : []),
               { id: 'orders', label: 'Orders', icon: '📦' },
               { id: 'addresses', label: 'Addresses', icon: '🏠' },
               { id: 'payments', label: 'Payments', icon: '💳' },
@@ -563,7 +567,7 @@ const Profile = () => {
               <button
                 key={item.id}
                 className={activeTab === item.id ? 'active' : ''}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => item.isAdmin ? window.location.href = '/adminDashboard' : handleTabChange(item.id)}
               >
                 <span>{item.icon}</span>
                 {item.label}
@@ -891,7 +895,7 @@ const Profile = () => {
                             </div>
                             <div className="order-actions">
                               <button className="action-btn">View Details</button>
-                              <button className="action-btn">Track Order</button>
+                              <button className="action-btn" onClick={() => window.location.href = `/orderTracking/${order.id}`}>Track Order</button>
                               <button className="action-btn">Reorder</button>
                             </div>
                           </div>
@@ -1184,6 +1188,7 @@ const Profile = () => {
                 onClose={() => setShowPaymentForm(false)}
                 onSave={handleSavePayment}
                 editPayment={editingPayment}
+                userId={user?.id}
               />
 
               <ChangePassword

@@ -27,7 +27,10 @@ export const productAPI = {
       const response = await axiosClient.get(`/products/${productId}`);
       return response.data;
     } catch (error) {
-      console.error('Failed to fetch product:', error);
+      // Don't log 404 errors as they're handled by the component
+      if (error.response?.status !== 404) {
+        console.error('Failed to fetch product:', error);
+      }
       throw error;
     }
   },
@@ -79,6 +82,36 @@ export const productAPI = {
       return response.data;
     } catch (error) {
       console.error('Failed to fetch new arrivals:', error);
+      throw error;
+    }
+  },
+
+  createProduct: async (productData) => {
+    try {
+      const response = await axiosClient.post('/products/', productData);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to create product:', error);
+      throw error;
+    }
+  },
+
+  updateProduct: async (productId, productData) => {
+    try {
+      const response = await axiosClient.put(`/products/${productId}`, productData);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to update product:', error);
+      throw error;
+    }
+  },
+
+  deleteProduct: async (productId) => {
+    try {
+      const response = await axiosClient.delete(`/products/${productId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to delete product:', error);
       throw error;
     }
   }

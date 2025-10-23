@@ -148,10 +148,23 @@ class SecurityService:
         try:
             settings = await self.get_security_settings(user_id)
             if not settings.two_factor_secret:
+                logger.error(f"No 2FA secret found for user {user_id}")
                 return False
 
             totp = pyotp.TOTP(settings.two_factor_secret)
-            if totp.verify(request.code):
+            logger.info(f"Verifying 2FA code '{request.code}' for user {user_id} with secret {settings.two_factor_secret}")
+
+            # Clean the code (remove spaces, ensure it's 6 digits)
+            clean_code = request.code.strip()
+            if len(clean_code) != 6 or not clean_code.isdigit():
+                logger.warning(f"Invalid 2FA code format: '{request.code}'")
+                return False
+
+            # Check current time window and some tolerance
+            is_valid = totp.verify(clean_code, valid_window=5)  # Allow 5 time steps tolerance (150 seconds before/after)
+
+            if is_valid:
+                logger.info(f"2FA verification successful for user {user_id}")
                 # Enable 2FA
                 await self.update_security_settings(
                     user_id,
@@ -165,7 +178,12 @@ class SecurityService:
                 )
 
                 return True
-            return False
+            else:
+                logger.warning(f"2FA verification failed for user {user_id} - invalid code '{clean_code}'")
+                # Debug: show what the current valid codes are
+                current_code = totp.now()
+                logger.info(f"Current valid code for user {user_id}: {current_code}")
+                return False
         except Exception as e:
             logger.error(f"Verify two factor setup error: {e}")
             raise ValueError(f"Failed to verify two-factor setup: {str(e)}")

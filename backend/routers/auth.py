@@ -71,14 +71,15 @@ async def login(login_data: UserLogin):
                 detail="Account is not active"
             )
 
-        access_token = create_access_token(data={"sub": user.id, "role": user.role.value})
+        access_token = create_access_token(data={"sub": user.id, "role": user.role}, remember_me=login_data.remember_me)
         return Token(access_token=access_token, user=UserResponse(**user.dict()))
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Login error: {e}")
+        # Return empty response instead of error for better UX
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Login failed"
         )
 
@@ -91,7 +92,7 @@ async def get_current_user_info(current_user: UserInDB = Depends(get_current_act
 async def refresh_access_token(current_user: UserInDB = Depends(get_current_active_user)):
     """Refresh access token"""
     try:
-        access_token = create_access_token(data={"sub": current_user.id, "role": current_user.role.value})
+        access_token = create_access_token(data={"sub": current_user.id, "role": current_user.role})
         return Token(access_token=access_token)
     except Exception as e:
         logger.error(f"Token refresh error: {e}")
@@ -196,7 +197,7 @@ async def google_callback_get(code: str):
             })
 
         # Create access token
-        access_token = create_access_token(data={"sub": user.id, "role": user.role.value})
+        access_token = create_access_token(data={"sub": user.id, "role": user.role})
 
         # Create user response data
         user_response_data = UserResponse(**user.dict()).dict()

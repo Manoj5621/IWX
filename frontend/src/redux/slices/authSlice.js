@@ -5,6 +5,7 @@ const initialState = {
   token: localStorage.getItem('token'),
   userRole: localStorage.getItem('userRole') || 'user',
   isAuthenticated: !!localStorage.getItem('token'),
+  rememberMe: localStorage.getItem('rememberMe') === 'true',
   loading: true,
   error: null,
 };
@@ -26,6 +27,11 @@ const authSlice = createSlice({
       state.error = null;
       localStorage.setItem('token', action.payload.token);
       localStorage.setItem('userRole', state.userRole);
+      // Store remember me preference if provided
+      if (action.payload.rememberMe !== undefined) {
+        state.rememberMe = action.payload.rememberMe;
+        localStorage.setItem('rememberMe', action.payload.rememberMe.toString());
+      }
     },
     loginFailure: (state, action) => {
       state.loading = false;
@@ -34,6 +40,9 @@ const authSlice = createSlice({
       state.user = null;
       state.token = null;
       state.userRole = 'user';
+      // Clear remember me on login failure
+      state.rememberMe = false;
+      localStorage.removeItem('rememberMe');
     },
     logout: (state) => {
       state.user = null;
@@ -44,6 +53,9 @@ const authSlice = createSlice({
       state.error = null;
       localStorage.removeItem('token');
       localStorage.removeItem('userRole');
+      // Clear remember me on logout
+      state.rememberMe = false;
+      localStorage.removeItem('rememberMe');
     },
     updateUser: (state, action) => {
       state.user = action.payload;

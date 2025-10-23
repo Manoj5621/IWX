@@ -16,13 +16,30 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         self.rate_limit_requests = rate_limit_requests
         self.rate_limit_window = rate_limit_window
         self.requests: Dict[str, list] = {}
+        # Higher limits for admin endpoints
+        self.admin_rate_limit_requests = 1000  # 1000 requests per minute for admin
+        self.admin_rate_limit_window = 60
 
     async def dispatch(self, request: Request, call_next):
+        # Handle preflight OPTIONS requests
+        if request.method == "OPTIONS":
+            response = JSONResponse(content={"message": "CORS preflight successful"})
+            # Set CORS headers
+            origin = request.headers.get("Origin")
+            allowed_origins = ["http://localhost:3000", "http://localhost:5173", "http://localhost:8000"]
+            if origin and origin in allowed_origins:
+                response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+            response.headers["Access-Control-Max-Age"] = "86400"
+            return response
+
         # Get client IP
         client_ip = self.get_client_ip(request)
 
         # Rate limiting
-        if not self.check_rate_limit(client_ip):
+        if not self.check_rate_limit(request, client_ip):
             return JSONResponse(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 content={"detail": "Rate limit exceeded"}
@@ -61,9 +78,19 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             # Skip logging if there's an issue
             pass
 
-        # Skip security headers for OPTIONS requests to avoid conflicts
-        if request.method == "OPTIONS":
-            return response
+        # Set CORS headers for all requests
+        origin = request.headers.get("Origin")
+        allowed_origins = ["http://localhost:3000", "http://localhost:5173", "http://localhost:8000"]
+
+        if origin and origin in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+        elif "*" in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+        response.headers["Access-Control-Max-Age"] = "86400"
 
         # Add security headers
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -90,9 +117,17 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         # Fall back to client host
         return request.client.host if request.client else "unknown"
 
-    def check_rate_limit(self, client_ip: str) -> bool:
+    def check_rate_limit(self, request: Request, client_ip: str) -> bool:
         """Check if request is within rate limits"""
         current_time = time.time()
+
+        # Check if this is an admin endpoint
+        path = str(request.url.path)
+        is_admin_endpoint = path.startswith("/admin/")
+
+        # Use different limits for admin endpoints
+        limit_requests = self.admin_rate_limit_requests if is_admin_endpoint else self.rate_limit_requests
+        limit_window = self.admin_rate_limit_window if is_admin_endpoint else self.rate_limit_window
 
         if client_ip not in self.requests:
             self.requests[client_ip] = []
@@ -100,11 +135,12 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         # Clean old requests
         self.requests[client_ip] = [
             req_time for req_time in self.requests[client_ip]
-            if current_time - req_time < self.rate_limit_window
+            if current_time - req_time < limit_window
         ]
 
         # Check if under limit
-        if len(self.requests[client_ip]) >= self.rate_limit_requests:
+        if len(self.requests[client_ip]) >= limit_requests:
+            logger.warning(f"Rate limit exceeded for {client_ip} on {'admin' if is_admin_endpoint else 'regular'} endpoint: {path}")
             return False
 
         # Add current request

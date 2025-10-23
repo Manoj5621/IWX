@@ -144,24 +144,26 @@ const ChangePassword = ({ isOpen, onClose }) => {
 };
 
 const TwoFactorAuth = ({ isOpen, onClose }) => {
-  const [step, setStep] = useState(1);
-  const [verificationCode, setVerificationCode] = useState('');
+   const [step, setStep] = useState(1);
+   const [verificationCode, setVerificationCode] = useState('');
+   const [twoFactorData, setTwoFactorData] = useState(null);
 
-  const handleEnable2FA = async () => {
-    try {
-      const response = await securityAPI.enableTwoFactor();
-      // In a real app, you'd show the QR code from response
-      console.log('2FA setup initiated:', response);
-      setStep(2);
-    } catch (error) {
-      console.error('Error enabling 2FA:', error);
-    }
-  };
+   const handleEnable2FA = async () => {
+     try {
+       const response = await securityAPI.enableTwoFactor();
+       console.log('2FA setup initiated:', response);
+       setTwoFactorData(response);
+       setStep(2);
+     } catch (error) {
+       console.error('Error enabling 2FA:', error);
+     }
+   };
 
   const handleVerify = async (e) => {
     e.preventDefault();
     try {
-      const verificationData = { code: verificationCode };
+      const verificationData = { code: verificationCode.trim() };
+      console.log('Attempting to verify 2FA with code:', verificationCode);
       await securityAPI.verifyTwoFactorSetup(verificationData);
       console.log('2FA enabled successfully');
       onClose();
@@ -240,14 +242,21 @@ const TwoFactorAuth = ({ isOpen, onClose }) => {
                     
                     <div className="qr-code-placeholder">
                       <div className="qr-code">
-                        {/* In real app, this would be a real QR code */}
-                        <div className="qr-placeholder">QR Code</div>
+                        {twoFactorData?.provisioning_uri ? (
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(twoFactorData.provisioning_uri)}`}
+                            alt="2FA QR Code"
+                            style={{ width: '200px', height: '200px' }}
+                          />
+                        ) : (
+                          <div className="qr-placeholder">QR Code</div>
+                        )}
                       </div>
                     </div>
 
                     <div className="manual-code">
                       <strong>Manual Entry Code:</strong>
-                      <code>JBSWY3DPEHPK3PXP</code>
+                      <code>{twoFactorData?.secret || 'Loading...'}</code>
                     </div>
 
                     <form onSubmit={handleVerify} className="verification-form">

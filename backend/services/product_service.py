@@ -87,7 +87,7 @@ class ProductService:
         skip: int = 0,
         limit: int = 20,
         sort_by: str = "created_at",
-        sort_order: int = -1
+        sort_order: str = "-1"
     ) -> ProductListResponse:
         """List products with filters, pagination, and sorting"""
         query = {"status": {"$ne": ProductStatus.DRAFT}}
@@ -134,15 +134,21 @@ class ProductService:
         # Get products with sorting
         sort_field = sort_by if sort_by != "relevance" else "created_at"
         cursor = MongoDB.get_collection(PRODUCTS_COLLECTION).find(query)\
-            .sort(sort_field, sort_order)\
+            .sort(sort_field, int(sort_order))\
             .skip(skip)\
             .limit(limit)
 
         products = []
         async for product_doc in cursor:
             product_doc["id"] = product_doc["_id"]
-            product = ProductInDB(**product_doc)
-            products.append(ProductResponse(**product.dict()))
+            try:
+                # Try to create ProductInDB with validation, but handle missing fields gracefully
+                product = ProductInDB(**product_doc)
+                products.append(ProductResponse(**product.dict()))
+            except Exception as e:
+                logger.warning(f"Failed to parse product {product_doc.get('_id')}: {e}")
+                # Skip invalid products but continue processing others
+                continue
 
         return ProductListResponse(
             products=products,
@@ -163,8 +169,14 @@ class ProductService:
         products = []
         async for product_doc in cursor:
             product_doc["id"] = product_doc["_id"]
-            product = ProductInDB(**product_doc)
-            products.append(ProductResponse(**product.dict()))
+            try:
+                # Try to create ProductInDB with validation, but handle missing fields gracefully
+                product = ProductInDB(**product_doc)
+                products.append(ProductResponse(**product.dict()))
+            except Exception as e:
+                logger.warning(f"Failed to parse product {product_doc.get('_id')}: {e}")
+                # Skip invalid products but continue processing others
+                continue
 
         return products
 
@@ -178,8 +190,14 @@ class ProductService:
         products = []
         async for product_doc in cursor:
             product_doc["id"] = product_doc["_id"]
-            product = ProductInDB(**product_doc)
-            products.append(ProductResponse(**product.dict()))
+            try:
+                # Try to create ProductInDB with validation, but handle missing fields gracefully
+                product = ProductInDB(**product_doc)
+                products.append(ProductResponse(**product.dict()))
+            except Exception as e:
+                logger.warning(f"Failed to parse product {product_doc.get('_id')}: {e}")
+                # Skip invalid products but continue processing others
+                continue
 
         return products
 
@@ -193,8 +211,14 @@ class ProductService:
         products = []
         async for product_doc in cursor:
             product_doc["id"] = product_doc["_id"]
-            product = ProductInDB(**product_doc)
-            products.append(ProductResponse(**product.dict()))
+            try:
+                # Try to create ProductInDB with validation, but handle missing fields gracefully
+                product = ProductInDB(**product_doc)
+                products.append(ProductResponse(**product.dict()))
+            except Exception as e:
+                logger.warning(f"Failed to parse product {product_doc.get('_id')}: {e}")
+                # Skip invalid products but continue processing others
+                continue
 
         return products
 

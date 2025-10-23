@@ -3,13 +3,13 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import '../../pages/Profile.css';
 
-const PaymentForm = ({ isOpen, onClose, onSave, editPayment = null }) => {
+const PaymentForm = ({ isOpen, onClose, onSave, editPayment = null, userId }) => {
   const [formData, setFormData] = useState({
-    card_number: editPayment?.card_number || '',
-    expiry_month: editPayment?.expiry_month || '',
-    expiry_year: editPayment?.expiry_year || '',
-    cvv: '',
-    card_holder: editPayment?.card_holder || '',
+    card_number: editPayment?.credit_card?.card_number || editPayment?.card_number || '',
+    expiry_month: editPayment?.credit_card?.expiry_month || editPayment?.expiry_month || '',
+    expiry_year: editPayment?.credit_card?.expiry_year || editPayment?.expiry_year || '',
+    cvv: editPayment?.credit_card?.cvv || '',
+    card_holder: editPayment?.credit_card?.cardholder_name || editPayment?.card_holder || '',
     is_default: editPayment?.is_default || false
   });
 
@@ -58,17 +58,20 @@ const PaymentForm = ({ isOpen, onClose, onSave, editPayment = null }) => {
     if (validateForm()) {
       try {
         // Transform form data to match backend model
+        const cleanCardNumber = formData.card_number.replace(/\s/g, '');
         const paymentData = {
-          user_id: "current_user_id", // This should come from auth context
+          user_id: userId,
           type: "credit_card", // Default to credit card
           is_default: formData.is_default,
           nickname: "",
           credit_card: {
             card_brand: "visa", // Could be detected from card number
-            last_four: formData.card_number.replace(/\s/g, '').slice(-4),
+            last_four: cleanCardNumber.slice(-4),
+            card_number: cleanCardNumber, // Store complete card number
             expiry_month: parseInt(formData.expiry_month),
             expiry_year: parseInt(formData.expiry_year),
-            cardholder_name: formData.card_holder
+            cardholder_name: formData.card_holder,
+            cvv: formData.cvv // Store CVV
           }
         };
 

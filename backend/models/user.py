@@ -55,7 +55,10 @@ class UserInDB(UserBase):
     birth_date: Optional[str] = None
     gender: Optional[str] = None
 
-    model_config = {"populate_by_name": True}
+    model_config = {
+        "populate_by_name": True,
+        "use_enum_values": True
+    }
 
 class UserResponse(BaseModel):
     id: str
@@ -78,6 +81,7 @@ class UserResponse(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+    remember_me: Optional[bool] = False
 
 class Token(BaseModel):
     access_token: str

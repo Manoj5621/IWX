@@ -25,6 +25,18 @@ class ShippingMethod(str, Enum):
     EXPRESS = "express"
     OVERNIGHT = "overnight"
 
+class ReturnStatus(str, Enum):
+    REQUESTED = "requested"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    RECEIVED = "received"
+    REFUNDED = "refunded"
+    CANCELLED = "cancelled"
+
+class RefundMethod(str, Enum):
+    ORIGINAL_PAYMENT = "original_payment"
+    STORE_CREDIT = "store_credit"
+
 class OrderItem(BaseModel):
     product_id: str
     product: Optional[ProductResponse] = None
@@ -144,3 +156,70 @@ class CartResponse(BaseModel):
     shipping_cost: float
     total_amount: float
     item_count: int
+
+class ReturnItem(BaseModel):
+    order_item_id: int
+    product_id: str
+    quantity: int = Field(..., gt=0)
+    reason: str
+    condition: str = "good"
+    notes: Optional[str] = None
+
+class ReturnRequestCreate(BaseModel):
+    order_id: str
+    items: List[ReturnItem]
+    refund_method: RefundMethod = RefundMethod.ORIGINAL_PAYMENT
+    additional_notes: Optional[str] = None
+
+class ReturnRequestUpdate(BaseModel):
+    status: Optional[ReturnStatus] = None
+    admin_notes: Optional[str] = None
+    refund_amount: Optional[float] = None
+
+class ReturnRequestInDB(BaseModel):
+    id: str
+    return_number: str
+    order_id: str
+    user_id: str
+    items: List[ReturnItem]
+    status: ReturnStatus = ReturnStatus.REQUESTED
+    refund_method: RefundMethod
+    refund_amount: Optional[float] = None
+    admin_notes: Optional[str] = None
+    additional_notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    processed_at: Optional[datetime] = None
+
+class ReturnRequestResponse(BaseModel):
+    id: str
+    return_number: str
+    order_id: str
+    order: Optional[OrderResponse] = None
+    user_id: str
+    user: Optional[UserResponse] = None
+    items: List[Dict[str, Any]]  # Items with product details
+    status: ReturnStatus
+    refund_method: RefundMethod
+    refund_amount: Optional[float] = None
+    admin_notes: Optional[str] = None
+    additional_notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    processed_at: Optional[datetime] = None
+
+class ReturnRequestListResponse(BaseModel):
+    returns: List[ReturnRequestResponse]
+    total: int
+    page: int
+    limit: int
+    has_next: bool
+    has_prev: bool
+
+class ReturnStats(BaseModel):
+    total_returns: int
+    pending_returns: int
+    approved_returns: int
+    rejected_returns: int
+    completed_returns: int
+    total_refund_amount: float

@@ -20,8 +20,24 @@ async def create_product(
 ):
     """Create a new product (Editor/Admin only)"""
     try:
+        # Validate images count (1-6)
+        if len(product_data.images) < 1 or len(product_data.images) > 6:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Product must have between 1 and 6 images"
+            )
+
+        # Validate videos count (0-2)
+        if len(product_data.videos) > 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Product can have at most 2 videos"
+            )
+
         product = await ProductService.create_product(product_data, current_user.id)
         return ProductResponse(**product.dict())
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Create product error: {e}")
         raise HTTPException(
@@ -57,6 +73,20 @@ async def update_product(
 ):
     """Update product (Editor/Admin only)"""
     try:
+        # Validate images count if provided (1-6)
+        if product_data.images is not None and (len(product_data.images) < 1 or len(product_data.images) > 6):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Product must have between 1 and 6 images"
+            )
+
+        # Validate videos count if provided (0-2)
+        if product_data.videos is not None and len(product_data.videos) > 2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Product can have at most 2 videos"
+            )
+
         product = await ProductService.update_product(product_id, product_data)
         if not product:
             raise HTTPException(
@@ -113,7 +143,7 @@ async def list_products(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     sort_by: str = "created_at",
-    sort_order: int = Query(-1, regex="^(1|-1)$")
+    sort_order: str = Query("-1", regex="^(1|-1)$")
 ):
     """List products with filters and pagination"""
     try:
@@ -155,10 +185,8 @@ async def get_featured_products(limit: int = Query(8, ge=1, le=50)):
         return products
     except Exception as e:
         logger.error(f"Get featured products error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get featured products"
-        )
+        # Return empty list instead of error for better UX
+        return []
 
 @router.get("/trending/", response_model=List[ProductResponse])
 async def get_trending_products(limit: int = Query(8, ge=1, le=50)):
@@ -168,10 +196,8 @@ async def get_trending_products(limit: int = Query(8, ge=1, le=50)):
         return products
     except Exception as e:
         logger.error(f"Get trending products error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get trending products"
-        )
+        # Return empty list instead of error for better UX
+        return []
 
 @router.get("/new-arrivals/", response_model=List[ProductResponse])
 async def get_new_arrivals(limit: int = Query(8, ge=1, le=50)):
@@ -181,10 +207,8 @@ async def get_new_arrivals(limit: int = Query(8, ge=1, le=50)):
         return products
     except Exception as e:
         logger.error(f"Get new arrivals error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to get new arrivals"
-        )
+        # Return empty list instead of error for better UX
+        return []
 
 @router.get("/stats/", response_model=ProductStats)
 async def get_product_stats(current_user: UserInDB = Depends(get_current_editor_user)):

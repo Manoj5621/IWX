@@ -42,20 +42,20 @@ async def lifespan(app: FastAPI):
     logger.info("Starting up IWX E-commerce Backend...")
 
     try:
-        # Run database migrations
-        logger.info("Running database migrations...")
-        alembic_cfg = Config("alembic.ini")
-        command.upgrade(alembic_cfg, "head")
-        logger.info("Database migrations completed")
-
-        # Connect to databases
+        # Connect to databases first
         await MongoDB.connect_to_mongo()
         await create_tables()
+        logger.info("Database connections established")
+
+        # Run database migrations (optional - comment out if not needed)
+        # logger.info("Running database migrations...")
+        # alembic_cfg = Config("alembic.ini")
+        # command.upgrade(alembic_cfg, "head")
+        # logger.info("Database migrations completed")
 
         # Create default admin user
         await UserService.create_admin_user()
 
-        logger.info("Database connections established")
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         raise
@@ -77,10 +77,11 @@ app = FastAPI(
 # Add middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:3000", "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 app.add_middleware(
@@ -175,7 +176,7 @@ async def global_exception_handler(request: Request, exc: Exception):
         }
     )
 
-if __name__ == "_main_":
+if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
